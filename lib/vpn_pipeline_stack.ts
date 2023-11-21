@@ -1,0 +1,39 @@
+import * as cdk from 'aws-cdk-lib';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { Construct } from 'constructs';
+import { CodePipeline, CodePipelineSource, CodeBuildStep } from 'aws-cdk-lib/pipelines';
+import { VPNPipelineAppStage } from './vpn_pipeline_app_stage';
+import { ManualApprovalStep } from 'aws-cdk-lib/pipelines';
+import {BuildEnvironmentVariableType} from 'aws-cdk-lib/aws-codebuild';
+
+export class VpnPipelineStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    const pipeline = new CodePipeline(this, 'Pipeline', {
+      pipelineName: 'VPNPipeline',
+      synth: new CodeBuildStep('Synth', {
+        input: CodePipelineSource.gitHub('eamonmason/vpn-deploy', 'main'),
+        commands: ['npm ci', 'npx cdk synth'],
+        buildEnvironment: {
+          environmentVariables: {
+            PRIVATE_IP_CIDR: { value: '/vpn-wireguard/PRIVATE_IP_CIDR', type: BuildEnvironmentVariableType.PARAMETER_STORE},
+            ZONE_NAME: { value: '/vpn-wireguard/ZONE_NAME', type: BuildEnvironmentVariableType.PARAMETER_STORE},
+            WIREGUARD_IMAGE: { value: '/vpn-wireguard/WIREGUARD_IMAGE', type: BuildEnvironmentVariableType.PARAMETER_STORE},
+            PUBLIC_KEY: { value: '/vpn-wireguard/PUBLIC_KEY', type: BuildEnvironmentVariableType.PARAMETER_STORE},
+          }
+        }
+      })        
+    });
+
+    const targetRegion = ssm.StringParameter.valueFromLookup(this, '/vpn-wireguard/AWS_REGION')
+    
+    const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, "cd-vpn", {
+        env: {
+          account: process.env.AWS_ACCOUNT_ID,
+          region: targetRegion
+        }
+    }));
+      
+  }
+}

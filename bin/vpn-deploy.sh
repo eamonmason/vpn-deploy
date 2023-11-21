@@ -11,6 +11,9 @@ if [[ $# -ge 4 ]]; then
     npx cdk deploy "$@"
     exit $?
 else
-    echo 1>&2 "Provide a private IP CIDR, e.g. 10.0.0.1/32. Zone name, e.g. acme.com, image name, e.g. WireguardImage, and Public Key"    
+    echo 1>&2 "Provide a private IP CIDR, e.g. PRIVATE_IP_CIDR=10.0.0.1/32. \
+     Zone name e.g. ZONE_NAME=acme.com, \
+    image name, e.g. WIREGUARD_IMAGE=WireguardImage, \
+    and Public Key, e.g. PUBLIC_KEY=publickey."
     exit 1
 fi
