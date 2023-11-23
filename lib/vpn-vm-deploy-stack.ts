@@ -68,7 +68,7 @@ export class VPNVMDeployStack extends cdk.Stack {
     // Find the Wireguard AMI I created in various regions    
     const wireguard_ami = new ec2.LookupMachineImage({
       name: WIREGUARD_IMAGE,  
-      owners: [process.env.CDK_DEFAULT_ACCOUNT || ''],  
+      owners: [process.env.CDK_DEFAULT_ACCOUNT || process.env.account || '002681522526'],  
       windows: false,
     });
 

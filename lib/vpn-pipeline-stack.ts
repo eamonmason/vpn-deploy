@@ -47,7 +47,7 @@ export class VPNPipelineStack extends cdk.Stack {
 
     const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, "cd-vpn", {
         env: {
-          account: process.env.AWS_ACCOUNT_ID,
+          account: process.env.CDK_DEFAULT_ACCOUNT,
           region: "us-east-1"
         }
     }));
