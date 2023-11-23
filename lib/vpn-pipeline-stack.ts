@@ -36,9 +36,14 @@ export class VPNPipelineStack extends cdk.Stack {
             ZONE_NAME: { value: '/vpn-wireguard/ZONE_NAME', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             WIREGUARD_IMAGE: { value: '/vpn-wireguard/WIREGUARD_IMAGE', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             PUBLIC_KEY: { value: '/vpn-wireguard/PUBLIC_KEY', type: BuildEnvironmentVariableType.PARAMETER_STORE},
-          }
+          },
+          privileged: true,          
         },
-        role: roleToAssume
+        role: roleToAssume,
+        env: {  
+          account: process.env.CDK_DEFAULT_ACCOUNT || '',
+          region: process.env.CDK_DEFAULT_REGION || '',
+        }
       }),      
     });    
 
