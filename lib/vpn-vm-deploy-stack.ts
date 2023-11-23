@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 
 export class VPNVMDeployStack extends cdk.Stack {
@@ -40,9 +41,6 @@ export class VPNVMDeployStack extends cdk.Stack {
         }
       ]
     });
-    
-    // Might be useful for troubleshooting but not necessary
-    // vpc.addFlowLog('VPNFlowLog');
 
     // Minimal security group for the VM only allowing access from my own IP
     const vpnSecurityGroup = new ec2.SecurityGroup(this, 'VPNSecurityGroup', {
@@ -65,6 +63,7 @@ export class VPNVMDeployStack extends cdk.Stack {
       keyName: 'vpn-key-pair',          
       publicKeyMaterial: PUBLIC_KEY,
     });
+
     // Find the Wireguard AMI I created in various regions    
     const wireguard_ami = new ec2.LookupMachineImage({
       name: WIREGUARD_IMAGE,  
@@ -72,33 +71,44 @@ export class VPNVMDeployStack extends cdk.Stack {
       windows: false,
     });
 
-    const vpnVM = new ec2.Instance(this, 'VPNVM', {
+    // const vpnVM = new ec2.Instance(this, 'VPNVM', {
+    //   vpc,
+    //   instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+    //   machineImage: wireguard_ami,
+    //   propagateTagsToVolumeOnCreation: true,
+    //   securityGroup: vpnSecurityGroup,
+    //   // Not necessary for public subnet, but hey...
+    //   associatePublicIpAddress: true,
+    //   vpcSubnets: { subnetGroupName: 'public' },
+    //   keyName: vpnVMKeyPair.keyName      
+    // });
+
+    const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {
       vpc,
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: wireguard_ami,
-      propagateTagsToVolumeOnCreation: true,
-      securityGroup: vpnSecurityGroup,
-      // Not necessary for public subnet, but hey...
       associatePublicIpAddress: true,
       vpcSubnets: { subnetGroupName: 'public' },
-      keyName: vpnVMKeyPair.keyName      
+      keyName: vpnVMKeyPair.keyName,    
+      minCapacity: 0,
+      maxCapacity: 1,
     });
+    
+    // new cdk.CfnOutput(this, 'InstanceDNS', {
+    //   value: vpnVM.instancePublicDnsName
+    // });
 
-    new cdk.CfnOutput(this, 'InstanceDNS', {
-      value: vpnVM.instancePublicDnsName
-    });
+    // const zoneFromAttributes = route53.PublicHostedZone.fromLookup(this, 'HomeZone', {
+    //   domainName: ZONE_NAME,      
+    // });
 
-    const zoneFromAttributes = route53.PublicHostedZone.fromLookup(this, 'HomeZone', {
-      domainName: ZONE_NAME,      
-    });
-
-    new route53.CnameRecord(this, 'VPNCNameRecord', {
-      zone: zoneFromAttributes,
-      recordName: RECORD_NAME,
-      domainName: vpnVM.instancePublicDnsName,
-      deleteExisting: true,
-      ttl: cdk.Duration.minutes(1),       // Optional - default is 30 minutes
-    });
+    // new route53.CnameRecord(this, 'VPNCNameRecord', {
+    //   zone: zoneFromAttributes,
+    //   recordName: RECORD_NAME,
+    //   domainName: vpnVM.instancePublicDnsName,
+    //   deleteExisting: true,
+    //   ttl: cdk.Duration.minutes(1),       // Optional - default is 30 minutes
+    // });
 
   }
 }
