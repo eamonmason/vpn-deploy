@@ -5,16 +5,30 @@ import { CodePipeline, CodePipelineSource, CodeBuildStep } from 'aws-cdk-lib/pip
 import { VPNPipelineAppStage } from './vpn_pipeline_app_stage';
 import { ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import {BuildEnvironmentVariableType} from 'aws-cdk-lib/aws-codebuild';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export class VpnPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const roleToAssume = new iam.Role(this, `role-to-assume`
+    , {
+      // assumedBy: new iam.AccountRootPrincipal()
+      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
+    }
+    );
+    roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
+
     const pipeline = new CodePipeline(this, 'Pipeline', {
       pipelineName: 'VPNPipeline',
       synth: new CodeBuildStep('Synth', {
         input: CodePipelineSource.gitHub('eamonmason/vpn-deploy', 'main'),
-        commands: ['npm ci', 'npx cdk synth'],
+        commands: [
+          // "echo ${!roleToAssume.roleArn}",
+          // "CREDENTIALS=$(aws sts assume-role --role-arn \"${!roleToAssume.roleArn}\" --role-session-name codebuild-cdk)",
+          'npm ci',
+          'npx cdk synth'
+        ],
         buildEnvironment: {
           environmentVariables: {
             PRIVATE_IP_CIDR: { value: '/vpn-wireguard/PRIVATE_IP_CIDR', type: BuildEnvironmentVariableType.PARAMETER_STORE},
@@ -22,16 +36,17 @@ export class VpnPipelineStack extends cdk.Stack {
             WIREGUARD_IMAGE: { value: '/vpn-wireguard/WIREGUARD_IMAGE', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             PUBLIC_KEY: { value: '/vpn-wireguard/PUBLIC_KEY', type: BuildEnvironmentVariableType.PARAMETER_STORE},
           }
-        }
-      })        
-    });
+        },
+        role: roleToAssume
+      }),      
+    });    
 
     const targetRegion = ssm.StringParameter.valueFromLookup(this, '/vpn-wireguard/AWS_REGION')
-    
+
     const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, "cd-vpn", {
         env: {
           account: process.env.AWS_ACCOUNT_ID,
-          region: targetRegion
+          region: "us-east-1"
         }
     }));
       
