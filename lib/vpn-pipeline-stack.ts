@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { CodePipeline, CodePipelineSource, CodeBuildStep } from 'aws-cdk-lib/pipelines';
-import { VPNPipelineAppStage } from './vpn_pipeline_app_stage';
+import { VPNPipelineAppStage } from './vpn-pipeline-app-stage';
 import { ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import {BuildEnvironmentVariableType} from 'aws-cdk-lib/aws-codebuild';
 import * as iam from 'aws-cdk-lib/aws-iam';

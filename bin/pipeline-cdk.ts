@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { VPNPipelineStack } from '../lib/vpn_pipeline_stack';
+import { VPNPipelineStack } from '../lib/vpn-pipeline-stack';
 
 const app = new cdk.App();
 new VPNPipelineStack(app, 'VPNPipelineStack', {
