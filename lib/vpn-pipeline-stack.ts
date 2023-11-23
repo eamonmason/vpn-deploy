@@ -46,7 +46,7 @@ export class VPNPipelineStack extends cdk.Stack {
     const targetRegion = ssm.StringParameter.valueFromLookup(this, '/vpn-wireguard/AWS_REGION')
 
     for (var region in ["us-east-1", "eu-west-2", "eu-north-1"]) {
-      const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, "cd-vpn", {
+      const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, `cd-vpn-${ region }`, {
           env: {
             account: process.env.CDK_DEFAULT_ACCOUNT,
             region: region
