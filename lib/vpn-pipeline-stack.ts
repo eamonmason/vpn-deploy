@@ -26,9 +26,9 @@ export class VPNPipelineStack extends cdk.Stack {
         commands: [
           // "echo ${!roleToAssume.roleArn}",
           // "CREDENTIALS=$(aws sts assume-role --role-arn \"${!roleToAssume.roleArn}\" --role-session-name codebuild-cdk)",
-          'npm ci',
-          'npm cdk ls',
-          'npx cdk synth'
+          'npm ci',          
+          'npx cdk synth',
+          'npx cdk ls',
         ],
         buildEnvironment: {
           environmentVariables: {
