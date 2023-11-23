@@ -11,7 +11,7 @@ export class VPNPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const roleToAssume = new iam.Role(this, `role-to-assume`
+    const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
     , {
       // assumedBy: new iam.AccountRootPrincipal()
       assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
@@ -39,11 +39,7 @@ export class VPNPipelineStack extends cdk.Stack {
           },
           privileged: true,          
         },
-        role: roleToAssume,
-        env: {  
-          account: process.env.CDK_DEFAULT_ACCOUNT || '',
-          region: process.env.CDK_DEFAULT_REGION || '',
-        }
+        role: roleToAssume        
       }),      
     });    
 

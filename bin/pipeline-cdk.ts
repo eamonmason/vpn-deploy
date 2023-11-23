@@ -3,11 +3,12 @@ import * as cdk from 'aws-cdk-lib';
 import { VPNPipelineStack } from '../lib/vpn-pipeline-stack';
 
 const app = new cdk.App();
-new VPNPipelineStack(app, 'VPNPipelineStack', {
+const pipelineStack = new VPNPipelineStack(app, 'VPNPipelineStack', {
   env: {
-    account: process.env.AWS_ACCOUNT_ID,
-    region: process.env.AWS_REGION
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION
   }
 });
+cdk.Tags.of(pipelineStack).add('application-name', 'wireguard-vpn');
 
-app.synth();
+// app.synth();
