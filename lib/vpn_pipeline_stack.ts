@@ -7,7 +7,7 @@ import { ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import {BuildEnvironmentVariableType} from 'aws-cdk-lib/aws-codebuild';
 import * as iam from 'aws-cdk-lib/aws-iam';
 
-export class VpnPipelineStack extends cdk.Stack {
+export class VPNPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
