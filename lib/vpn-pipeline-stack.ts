@@ -13,8 +13,8 @@ export class VPNPipelineStack extends cdk.Stack {
 
     const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
     , {
-      assumedBy: new iam.AccountRootPrincipal()
-      // assumedBy: new iam.ServicePrincipal("codepipeline.amazonaws.com"),
+      // assumedBy: new iam.AccountRootPrincipal()
+      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
     }
     );
     roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
