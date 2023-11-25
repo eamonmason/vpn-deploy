@@ -11,24 +11,22 @@ export class VPNPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
-    , {
-      // assumedBy: new iam.AccountRootPrincipal()
-      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
-    }
-    );
-    roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
+    // const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
+    // , {
+    //   // assumedBy: new iam.AccountRootPrincipal()
+    //   assumedBy: new iam.ServicePrincipal("codepipeline.amazonaws.com"),
+    // }
+    // );
+    // roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
+    
 
     const pipeline = new CodePipeline(this, 'Pipeline', {
       pipelineName: 'VPNPipeline',
       synth: new CodeBuildStep('Synth', {
         input: CodePipelineSource.gitHub('eamonmason/vpn-deploy', 'main'),
         commands: [
-          // "echo ${!roleToAssume.roleArn}",
-          // "CREDENTIALS=$(aws sts assume-role --role-arn \"${!roleToAssume.roleArn}\" --role-session-name codebuild-cdk)",
           'npm ci',          
           'npx cdk synth',
-          'npx cdk ls',
         ],
         buildEnvironment: {
           environmentVariables: {
@@ -37,16 +35,18 @@ export class VPNPipelineStack extends cdk.Stack {
             WIREGUARD_IMAGE: { value: '/vpn-wireguard/WIREGUARD_IMAGE', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             PUBLIC_KEY: { value: '/vpn-wireguard/PUBLIC_KEY', type: BuildEnvironmentVariableType.PARAMETER_STORE},
           },
-          privileged: true,          
+          // privileged: true,          
         },
-        role: roleToAssume        
+        // role: roleToAssume        
       }),      
-    });    
+    });
 
-    const targetRegion = ssm.StringParameter.valueFromLookup(this, '/vpn-wireguard/AWS_REGION')
 
-    for (var region in ["us-east-1", "eu-west-2", "eu-north-1"]) {
-      const testingStage = pipeline.addStage(new VPNPipelineAppStage(this, `cd-vpn-${ region }`, {
+    // const targetRegion = ssm.StringParameter.valueFromLookup(this, '/vpn-wireguard/AWS_REGION')
+    const regions = ["us-east-1", "eu-west-2", "eu-north-1"]
+    for (var region of regions) {
+      
+      pipeline.addStage(new VPNPipelineAppStage(this, `cd-vpn-${ region }`, {
           env: {
             account: process.env.CDK_DEFAULT_ACCOUNT,
             region: region
