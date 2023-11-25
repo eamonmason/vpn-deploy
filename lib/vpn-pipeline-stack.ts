@@ -11,13 +11,13 @@ export class VPNPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
-    // , {
-    //   // assumedBy: new iam.AccountRootPrincipal()
-    //   assumedBy: new iam.ServicePrincipal("codepipeline.amazonaws.com"),
-    // }
-    // );
-    // roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
+    const roleToAssume = new iam.Role(this, 'VPNPipelineRole'
+    , {
+      // assumedBy: new iam.AccountRootPrincipal()
+      assumedBy: new iam.ServicePrincipal("codepipeline.amazonaws.com"),
+    }
+    );
+    roleToAssume.addToPolicy(new iam.PolicyStatement({ actions: [`*`], resources: [`*`]}));
     
 
     const pipeline = new CodePipeline(this, 'Pipeline', {
@@ -37,7 +37,7 @@ export class VPNPipelineStack extends cdk.Stack {
           },
           // privileged: true,          
         },
-        // role: roleToAssume        
+        role: roleToAssume        
       }),      
     });
 
