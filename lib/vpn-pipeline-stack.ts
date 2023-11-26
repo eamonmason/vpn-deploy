@@ -46,12 +46,14 @@ export class VPNPipelineStack extends cdk.Stack {
     const regions = ["us-east-1", "eu-west-2", "eu-north-1"]
     for (var region of regions) {
       
-      pipeline.addStage(new VPNPipelineAppStage(this, `cd-vpn-${ region }`, {
-          env: {
-            account: process.env.CDK_DEFAULT_ACCOUNT,
-            region: region
-          }
-      }));
+      const vpn_app_stage = new VPNPipelineAppStage(this, `cd-vpn-${ region }`, {
+        env: {
+          account: process.env.CDK_DEFAULT_ACCOUNT,
+          region: region
+        }
+      })
+      cdk.Tags.of(vpn_app_stage).add('application-name', 'wireguard-vpn');
+      pipeline.addStage(vpn_app_stage);
     }
   }
 }
