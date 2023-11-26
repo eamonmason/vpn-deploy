@@ -60,9 +60,9 @@ export class VPNVMDeployStack extends cdk.Stack {
       'allow vpn access from my IP address');
 
     const stack = cdk.Stack.of(this);
-
+    const stack_id = stack.stackId.substring(stack.stackId.lastIndexOf('/') + 1);
     const vpnVMKeyPair = new ec2.CfnKeyPair(this, 'VPNVMKeyPair', {
-      keyName: `vpnvm-keypair-${ stack.stackId }`,
+      keyName: `vpnvm-keypair-${ stack_id }`,
       publicKeyMaterial: PUBLIC_KEY,
     });
 
