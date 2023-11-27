@@ -8,14 +8,12 @@ export class VPNVMDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const PRIVATE_IP_CIDR = process.env.PRIVATE_IP_CIDR || '';
-    const RECORD_NAME = process.env.RECORD_NAME || 'vpn';
-    const ZONE_NAME = process.env.ZONE_NAME || '';
+    const PRIVATE_IP_CIDR = process.env.PRIVATE_IP_CIDR || '';    
     const WIREGUARD_IMAGE = process.env.WIREGUARD_IMAGE || '';
     const PUBLIC_KEY = process.env.PUBLIC_KEY || '';
 
-    if (PRIVATE_IP_CIDR == '' || ZONE_NAME == '' || WIREGUARD_IMAGE == '') {
-      throw new Error("PRIVATE_IP_CIDR, ZONE_NAME or WIREGUARD_IMAGE environment variable(s) not set")
+    if (PRIVATE_IP_CIDR == '' || WIREGUARD_IMAGE == '') {
+      throw new Error("PRIVATE_IP_CIDR or WIREGUARD_IMAGE environment variable(s) not set")
     }
 
     // Create a VPC for our VM to use, with ability to change in future
@@ -73,18 +71,6 @@ export class VPNVMDeployStack extends cdk.Stack {
       windows: false,
     });
 
-    // const vpnVM = new ec2.Instance(this, 'VPNVM', {
-    //   vpc,
-    //   instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
-    //   machineImage: wireguard_ami,
-    //   propagateTagsToVolumeOnCreation: true,
-    //   securityGroup: vpnSecurityGroup,
-    //   // Not necessary for public subnet, but hey...
-    //   associatePublicIpAddress: true,
-    //   vpcSubnets: { subnetGroupName: 'public' },
-    //   keyName: vpnVMKeyPair.keyName      
-    // });
-
     const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {
       vpc,
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
@@ -94,23 +80,7 @@ export class VPNVMDeployStack extends cdk.Stack {
       keyName: vpnVMKeyPair.keyName,    
       minCapacity: 0,
       maxCapacity: 1,
+      securityGroup: vpnSecurityGroup,
     });
-    
-    // new cdk.CfnOutput(this, 'InstanceDNS', {
-    //   value: vpnVM.instancePublicDnsName
-    // });
-
-    // const zoneFromAttributes = route53.PublicHostedZone.fromLookup(this, 'HomeZone', {
-    //   domainName: ZONE_NAME,      
-    // });
-
-    // new route53.CnameRecord(this, 'VPNCNameRecord', {
-    //   zone: zoneFromAttributes,
-    //   recordName: RECORD_NAME,
-    //   domainName: vpnVM.instancePublicDnsName,
-    //   deleteExisting: true,
-    //   ttl: cdk.Duration.minutes(1),       // Optional - default is 30 minutes
-    // });
-
   }
 }

@@ -3,6 +3,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { CodePipeline, CodePipelineSource, CodeBuildStep } from 'aws-cdk-lib/pipelines';
 import { VPNPipelineAppStage } from './vpn-pipeline-app-stage';
+import { VPNPipelineLambdaStage } from './vpn-pipeline-lambda-stage';
 import { ManualApprovalStep } from 'aws-cdk-lib/pipelines';
 import {BuildEnvironmentVariableType} from 'aws-cdk-lib/aws-codebuild';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -55,5 +56,10 @@ export class VPNPipelineStack extends cdk.Stack {
       cdk.Tags.of(vpn_app_stage).add('application-name', 'wireguard-vpn');
       pipeline.addStage(vpn_app_stage);
     }
+
+    const vpn_lambda_stage = new VPNPipelineLambdaStage(this, 'cd-lambda');    
+    cdk.Tags.of(vpn_lambda_stage).add('application-name', 'wireguard-vpn');
+    pipeline.addStage(vpn_lambda_stage);
+
   }
 }
