@@ -8,7 +8,10 @@ import boto3
 APPLICATION_NAME_KEY = "application-name"
 APPLICATION_NAME_VALUE = "wireguard-vpn"
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s')
+if len(logging.getLogger().handlers) > 0:
+    logging.getLogger().setLevel(logging.INFO)
+else:
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
 

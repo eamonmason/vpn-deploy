@@ -45,7 +45,7 @@ export class VPNLambdaDeployStack extends cdk.Stack {
             statements: [
               new iam.PolicyStatement({
                 effect: iam.Effect.ALLOW,
-                actions: ['ec2:*', 'autoscaling:*', 's3:ListBucket', 's3:ListObjects'],
+                actions: ['ec2:*', 'autoscaling:*'],
                 conditions: {
                   "StringEquals": {"aws:ResourceTag/application-name": "wireguard-vpn"}
                 },
@@ -53,8 +53,13 @@ export class VPNLambdaDeployStack extends cdk.Stack {
               }),
               new iam.PolicyStatement({
                 effect: iam.Effect.ALLOW,
+                actions: ['autoscaling:DescribeAutoScalingGroups', 'autoscaling:DescribeAutoScalingInstances', 'ec2:DescribeInstances', 'ec2:DescribeSecurityGroups'],
+                resources: ['*'],
+              }),
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
                 actions: ['route53:listHostedZonesByName', 'route53:changeResourceRecordSets','route53:listResourceRecordSets'],
-                resources: ['arn:aws:route53:::hostedzone/*', 'arn:aws:route53:::change/*'],
+                resources: ['*'],
               })
             ]
           })
@@ -93,6 +98,5 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         retention: logs.RetentionDays.ONE_MONTH,
         removalPolicy: cdk.RemovalPolicy.DESTROY
       });
-      vpnToggleLogGroup.grantWrite(role);
   }
 }
