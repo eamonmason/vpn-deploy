@@ -33,6 +33,7 @@ export class VPNPipelineStack extends cdk.Stack {
           environmentVariables: {
             PRIVATE_IP_CIDR: { value: '/vpn-wireguard/PRIVATE_IP_CIDR', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             ZONE_NAME: { value: '/vpn-wireguard/ZONE_NAME', type: BuildEnvironmentVariableType.PARAMETER_STORE},
+            RECORD_NAME: { value: '/vpn-wireguard/RECORD_NAME', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             WIREGUARD_IMAGE: { value: '/vpn-wireguard/WIREGUARD_IMAGE', type: BuildEnvironmentVariableType.PARAMETER_STORE},
             PUBLIC_KEY: { value: '/vpn-wireguard/PUBLIC_KEY', type: BuildEnvironmentVariableType.PARAMETER_STORE},
           },
