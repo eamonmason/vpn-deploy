@@ -1,0 +1,14 @@
+
+{
+    "exclude": [
+        ".venv/**",
+        "**/__pycache__/**",
+        "dist/**",
+        ".venv/**",
+        "**/__pycache__/**",
+        "cdk.out/**",
+        "archive/**",
+        ".ruff_cache/**",
+        ".pytest_cache/**",
+    ]
+}

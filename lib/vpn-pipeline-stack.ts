@@ -24,7 +24,9 @@ export class VPNPipelineStack extends cdk.Stack {
     const pipeline = new CodePipeline(this, 'Pipeline', {
       pipelineName: 'VPNPipeline',
       synth: new CodeBuildStep('Synth', {
-        input: CodePipelineSource.gitHub('eamonmason/vpn-deploy', 'main'),
+        input: CodePipelineSource.connection('eamonmason/vpn-deploy', 'main', {
+          connectionArn: `arn:aws:codeconnections:${this.region}:${this.account}:connection/18ff9d6f-e1c9-4482-8ece-f2c4b275841e`
+        }),
         commands: [
           'npm ci',          
           'npx cdk synth',

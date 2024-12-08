@@ -2,18 +2,18 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
-import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 export class VPNVMDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const PRIVATE_IP_CIDR = process.env.PRIVATE_IP_CIDR || '';    
-    const WIREGUARD_IMAGE = process.env.WIREGUARD_IMAGE || '';
-    const PUBLIC_KEY = process.env.PUBLIC_KEY || '';
+    const PRIVATE_IP_CIDR = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/PRIVATE_IP_CIDR');
+    const PUBLIC_KEY = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/PUBLIC_KEY');
+    const WIREGUARD_AMI_NAME = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/WIREGUARD_IMAGE');
 
-    if (PRIVATE_IP_CIDR == '' || WIREGUARD_IMAGE == '') {
-      throw new Error("PRIVATE_IP_CIDR or WIREGUARD_IMAGE environment variable(s) not set")
+    if (PRIVATE_IP_CIDR == '' || PUBLIC_KEY == '' || WIREGUARD_AMI_NAME == '') {
+      throw new Error("Required environment variables not set")
     }
 
     // Create a VPC for our VM to use, with ability to change in future
@@ -64,12 +64,34 @@ export class VPNVMDeployStack extends cdk.Stack {
       publicKeyMaterial: PUBLIC_KEY,
     });
 
+    const accountId = process.env.CDK_DEFAULT_ACCOUNT || process.env.accountId || '';
+    const region = this.region || '';
+    const central_region = process.env.DEFAULT_REGION || 'eu-west-1';
     // Find the Wireguard AMI I created in various regions    
-    const wireguard_ami = new ec2.LookupMachineImage({
-      name: WIREGUARD_IMAGE,  
-      owners: [process.env.CDK_DEFAULT_ACCOUNT || process.env.account || '002681522526'],  
-      windows: false,
-    });
+    var wireguard_ami: ec2.IMachineImage;
+    try {
+       wireguard_ami = ec2.MachineImage.lookup({
+        name: WIREGUARD_AMI_NAME,
+        owners: [accountId],
+        filters: {
+          "source-image-region": [region]
+        }
+      });
+    }
+    catch (error) {
+      console.log(`Failed to find WireGuard AMI in ${region}: ${error}`);
+      return
+    }
+    
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      '# UserData version 1.0.2', // Increment version to force changes
+      'sudo yum install -y aws-cli',
+      `SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:${central_region}:${accountId}:secret:wireguard/client/publickey-I6u6Kw --region ${central_region} --query SecretString --output text)`,
+      'sudo wg-quick down wg0 || true', // Add || true to prevent failure if wg0 isn't up
+      'echo "$SECRET_VALUE" | sudo tee -a /etc/wireguard/wg0.conf',
+      'sudo wg-quick up wg0'
+    );
 
     const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {
       vpc,
@@ -81,6 +103,7 @@ export class VPNVMDeployStack extends cdk.Stack {
       minCapacity: 0,
       maxCapacity: 1,
       securityGroup: vpnSecurityGroup,
+      userData: userData,      
     });
   }
 }

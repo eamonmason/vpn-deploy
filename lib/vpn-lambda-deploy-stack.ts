@@ -12,7 +12,6 @@ export class VPNLambdaDeployStack extends cdk.Stack {
 
     const a_record_name = process.env.RECORD_NAME || '';
     const domain_name = process.env.ZONE_NAME || '';    
-    
     const receive_topic = new sns.Topic(this, process.env.CDK_DEFAULT_REGION || '');
     const MyTopicPolicy = new sns.TopicPolicy(this, 'VPNTopicSNSPolicy', {
         topics: [receive_topic],
@@ -72,8 +71,14 @@ export class VPNLambdaDeployStack extends cdk.Stack {
             image: lambda.Runtime.PYTHON_3_11.bundlingImage,
             command: [
               'bash', '-c',
-              'mkdir -p /asset-output/python/lib/python3.11/site-packages/ && pip install -t /asset-output/python/lib/python3.11/site-packages/ . && rm -r /asset-output/python/lib/python3.11/site-packages/vpn_toggle*'
+              'mkdir -p /asset-output/python/lib/python3.11/site-packages/ && pip install --no-cache-dir --no-deps -t /asset-output/python/lib/python3.11/site-packages/ . && rm -r /asset-output/python/lib/python3.11/site-packages/vpn_toggle*'
             ],
+            volumes: [
+              {
+                hostPath: '/Users/eamonmason/.cache/pip',
+                containerPath: '/root/.cache/pip'
+              }
+            ]
           }
         }
         )
