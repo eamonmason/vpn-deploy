@@ -72,12 +72,6 @@ export class VPNLambdaDeployStack extends cdk.Stack {
             command: [
               'bash', '-c',
               'mkdir -p /asset-output/python/lib/python3.11/site-packages/ && pip install --no-cache-dir --no-deps -t /asset-output/python/lib/python3.11/site-packages/ . && rm -r /asset-output/python/lib/python3.11/site-packages/vpn_toggle*'
-            ],
-            volumes: [
-              {
-                hostPath: '/Users/eamonmason/.cache/pip',
-                containerPath: '/root/.cache/pip'
-              }
             ]
           }
         }
