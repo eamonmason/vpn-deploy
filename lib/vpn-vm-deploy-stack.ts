@@ -66,7 +66,7 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const accountId = process.env.CDK_DEFAULT_ACCOUNT || process.env.accountId || '';
     const region = this.region || '';
-    const central_region = process.env.DEFAULT_REGION || 'eu-west-1';
+    const central_region = process.env.CDK_DEFAULT_REGION || 'eu-west-1';
     // Find the Wireguard AMI I created in various regions    
     var wireguard_ami: ec2.IMachineImage;
     try {
