@@ -73,9 +73,9 @@ export class VPNVMDeployStack extends cdk.Stack {
        wireguard_ami = ec2.MachineImage.lookup({
         name: WIREGUARD_AMI_NAME,
         owners: [accountId],
-        filters: {
-          "source-image-region": [region]
-        }
+        // filters: {
+        //   "source-image-region": [region]
+        // }
       });
     }
     catch (error) {
