@@ -65,24 +65,16 @@ export class VPNVMDeployStack extends cdk.Stack {
     });
 
     const accountId = process.env.CDK_DEFAULT_ACCOUNT || process.env.accountId || '';
-    const region = this.region || '';
     const central_region = 'eu-west-1';
     // Find the Wireguard AMI I created in various regions    
-    var wireguard_ami: ec2.IMachineImage;
-    try {
-       wireguard_ami = ec2.MachineImage.lookup({
-        name: WIREGUARD_AMI_NAME,
-        owners: [accountId],
-        // filters: {
-        //   "source-image-region": [region]
-        // }
-      });
-    }
-    catch (error) {
-      console.log(`Failed to find WireGuard AMI in ${region}: ${error}`);
-      return
-    }
-    
+    const wireguard_ami = ec2.MachineImage.lookup({
+      name: WIREGUARD_AMI_NAME,
+      owners: [accountId],
+      // filters: {
+      //   "source-image-region": [region]
+      // }
+    });
+  
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       '# UserData version 1.0.2', // Increment version to force changes
