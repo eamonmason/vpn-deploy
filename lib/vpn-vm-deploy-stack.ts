@@ -10,9 +10,8 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const PRIVATE_IP_CIDR = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/PRIVATE_IP_CIDR');
     const PUBLIC_KEY = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/PUBLIC_KEY');
-    const WIREGUARD_AMI_NAME = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/WIREGUARD_IMAGE');
 
-    if (PRIVATE_IP_CIDR == '' || PUBLIC_KEY == '' || WIREGUARD_AMI_NAME == '') {
+    if (PRIVATE_IP_CIDR == '' || PUBLIC_KEY == '') {
       throw new Error("Required environment variables not set")
     }
 
@@ -67,13 +66,7 @@ export class VPNVMDeployStack extends cdk.Stack {
     const accountId = process.env.CDK_DEFAULT_ACCOUNT || process.env.accountId || '';
     const central_region = 'eu-west-1';
     // Find the Wireguard AMI I created in various regions    
-    const wireguard_ami = ec2.MachineImage.lookup({
-      name: WIREGUARD_AMI_NAME,
-      owners: [accountId],
-      // filters: {
-      //   "source-image-region": [region]
-      // }
-    });
+    const wireguard_ami = ec2.MachineImage.fromSsmParameter('/vpn-wireguard/WIREGUARD_IMAGE')
   
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
