@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export class VPNVMDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -67,7 +68,22 @@ export class VPNVMDeployStack extends cdk.Stack {
     const central_region = 'eu-west-1';
     // Find the Wireguard AMI I created in various regions    
     const wireguard_ami = ec2.MachineImage.fromSsmParameter('/vpn-wireguard/WIREGUARD_IMAGE')
-  
+
+    const secretArn = `arn:aws:secretsmanager:${central_region}:${accountId}:secret:wireguard/client/publickey-I6u6Kw`;
+
+    const vpnInstanceRole = new iam.Role(this, 'VPNInstanceRole', {
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+    });
+
+    vpnInstanceRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [secretArn],
+    }));
+
+    const vpnInstanceProfile = new iam.CfnInstanceProfile(this, 'VPNInstanceProfile', {
+      roles: [vpnInstanceRole.roleName],
+    });
+
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       '# UserData version 1.0.2', // Increment version to force changes
@@ -88,7 +104,8 @@ export class VPNVMDeployStack extends cdk.Stack {
       minCapacity: 0,
       maxCapacity: 1,
       securityGroup: vpnSecurityGroup,
-      userData: userData,      
+      userData: userData,
+      role: vpnInstanceRole,
     });
   }
 }
