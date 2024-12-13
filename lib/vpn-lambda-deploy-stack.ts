@@ -71,7 +71,8 @@ export class VPNLambdaDeployStack extends cdk.Stack {
             image: lambda.Runtime.PYTHON_3_11.bundlingImage,
             command: [
               'bash', '-c',
-              'mkdir -p /asset-output/python/lib/python3.11/site-packages/ && pip install --no-cache-dir --no-deps -t /asset-output/python/lib/python3.11/site-packages/ . && rm -r /asset-output/python/lib/python3.11/site-packages/vpn_toggle*'
+              'pip install poetry && poetry export -f requirements.txt --without-hashes > requirements.txt \
+              mkdir -p /asset-output/python/lib/python3.11/site-packages/ && pip install -r requirements.txt --no-cache-dir --no-deps -t /asset-output/python/lib/python3.11/site-packages/ . && rm -r /asset-output/python/lib/python3.11/site-packages/vpn_toggle*'
             ]
           }
         }
