@@ -25,7 +25,7 @@ export class VPNVMDeployStack extends cdk.Stack {
           // 'subnetType' controls Internet access, as described above.
           subnetType: ec2.SubnetType.PUBLIC,
           name: 'public',
-          cidrMask: 24,
+          cidrMask: 28,
         },
         {
           cidrMask: 28,
@@ -99,8 +99,7 @@ export class VPNVMDeployStack extends cdk.Stack {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: wireguard_ami,
       associatePublicIpAddress: true,
-      vpcSubnets: { subnetGroupName: 'public' },
-      keyName: vpnVMKeyPair.keyName,    
+      keyPair: ec2.KeyPair.fromKeyPairName(this, 'ImportedVPNVMKeyPair', vpnVMKeyPair.keyName), // Updated to use IKeyPair
       minCapacity: 0,
       maxCapacity: 1,
       securityGroup: vpnSecurityGroup,

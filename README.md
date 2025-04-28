@@ -29,5 +29,5 @@ aws ssm get-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE"
 Run the deployment pipeline:
 
 ```sh
-cdk deploy --app "npx ts-node bin/pipeline-cdk.ts"
+cdk deploy --all --app "npx ts-node bin/pipeline-cdk.ts"
 ```
