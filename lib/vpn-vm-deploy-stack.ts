@@ -57,11 +57,11 @@ export class VPNVMDeployStack extends cdk.Stack {
       });
       
       // Store the new VPC ID in SSM Parameter Store for future deployments
-      new ssm.StringParameter(this, 'VpcIdParameter', {
-        parameterName: vpcIdParameterName,
-        stringValue: vpc.vpcId,
-        description: 'VPC ID for VPN deployment',
-      });
+      // new ssm.StringParameter(this, 'VpcIdParameter', {
+      //   parameterName: vpcIdParameterName,
+      //   stringValue: vpc.vpcId,
+      //   description: 'VPC ID for VPN deployment',
+      // });
     }
 
     // Minimal security group for the VM only allowing access from my own IP
