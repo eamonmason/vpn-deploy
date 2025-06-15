@@ -16,29 +16,53 @@ export class VPNVMDeployStack extends cdk.Stack {
       throw new Error("Required environment variables not set")
     }
 
-    // Create a VPC for our VM to use, with ability to change in future
-    const vpc = new ec2.Vpc(this, 'VPNVPC', {
-      maxAzs: 1,
-      ipAddresses: ec2.IpAddresses.cidr('172.31.0.0/16'),
-      subnetConfiguration: [
-        {
-          // 'subnetType' controls Internet access, as described above.
-          subnetType: ec2.SubnetType.PUBLIC,
-          name: 'public',
-          cidrMask: 28,
-        },
-        {
-          cidrMask: 28,
-          name: 'private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+    // Try to look up an existing VPC first, if not found, create a new one
+    // Using SSM parameter to store/retrieve the VPC ID if it exists
+    let vpc: ec2.IVpc;
     
-          // 'reserved' can be used to reserve IP address space. No resources will
-          // be created for this subnet, but the IP range will be kept available for
-          // future creation of this subnet, or even for future subdivision.
-          reserved: true
-        }
-      ]
-    });
+    // Create a unique parameter name based on the stack name
+    const vpcIdParameterName = `/vpn-wireguard/vpc-id`;
+    
+    try {
+      // Try to get the VPC ID from SSM Parameter Store
+      const vpcId = ssm.StringParameter.valueForStringParameter(this, vpcIdParameterName);
+      if (vpcId && vpcId !== '') {
+        // If VPC ID exists in parameter store, use it to import the VPC
+        console.log(`Importing existing VPC with ID: ${vpcId}`);
+        vpc = ec2.Vpc.fromLookup(this, 'VPNVPC', {
+          vpcId: vpcId
+        });
+      } else {
+        throw new Error('VPC ID parameter exists but is empty');
+      }
+    } catch (error) {
+      // If parameter doesn't exist or lookup fails, create a new VPC
+      console.log('Creating new VPC since no existing VPC was found');
+      vpc = new ec2.Vpc(this, 'VPNVPC', {
+        maxAzs: 1,
+        ipAddresses: ec2.IpAddresses.cidr('172.31.0.0/16'),
+        subnetConfiguration: [
+          {
+            subnetType: ec2.SubnetType.PUBLIC,
+            name: 'public',
+            cidrMask: 28,
+          },
+          {
+            cidrMask: 28,
+            name: 'private',
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+            reserved: true
+          }
+        ]
+      });
+      
+      // Store the new VPC ID in SSM Parameter Store for future deployments
+      new ssm.StringParameter(this, 'VpcIdParameter', {
+        parameterName: vpcIdParameterName,
+        stringValue: vpc.vpcId,
+        description: 'VPC ID for VPN deployment',
+      });
+    }
 
     // Minimal security group for the VM only allowing access from my own IP
     const vpnSecurityGroup = new ec2.SecurityGroup(this, 'VPNSecurityGroup', {
