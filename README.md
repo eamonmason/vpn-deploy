@@ -2,7 +2,7 @@
 
 This is CDK to deploy a VPN VM to a standalone VPC in AWS, based on a pre-existing AMI, in region.
 
-Put environment variables in SSM:
+Put environment variables in SSM Parameter Store:
 
 ```sh
 export AWS_REGION=<myregion>
@@ -12,6 +12,7 @@ aws ssm put-parameter --name "/vpn-wireguard/PUBLIC_KEY" --value "ssh-rsa xxxxx"
 aws ssm put-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE" --value "wireguard-server-2023-11-21-1150" --type SecureString
 aws ssm put-parameter --name "/vpn-wireguard/ZONE_NAME" --value "acme.com" --type String
 aws ssm put-parameter --name "/vpn-wireguard/RECORD_NAME" --value "vpn.acme.com" --type String
+aws ssm put-parameter --name "/vpn-wireguard/PRIVATE_KEY" --value "<wireguard-client-config>" --type SecureString
 ```
 
 Check env vars with:
@@ -24,7 +25,19 @@ aws ssm get-parameter --name "/vpn-wireguard/PUBLIC_KEY"
 aws ssm get-parameter --name "/vpn-wireguard/ZONE_NAME"
 aws ssm get-parameter --name "/vpn-wireguard/RECORD_NAME"
 aws ssm get-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE"
+aws ssm get-parameter --name "/vpn-wireguard/PRIVATE_KEY" --with-decryption
 ```
+
+## Migration from Secrets Manager
+
+If you have existing secrets in AWS Secrets Manager, use the migration script to convert them to SSM parameters:
+
+```sh
+cd migration
+python3 migrate-secrets-to-parameters.py --region eu-west-1 --all-regions
+```
+
+See [migration/README.md](migration/README.md) for detailed migration instructions.
 
 Run the deployment pipeline:
 

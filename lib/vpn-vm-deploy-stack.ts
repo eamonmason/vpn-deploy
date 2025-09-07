@@ -76,15 +76,16 @@ export class VPNVMDeployStack extends cdk.Stack {
     // Find the Wireguard AMI I created in various regions    
     const wireguard_ami = ec2.MachineImage.fromSsmParameter('/vpn-wireguard/WIREGUARD_IMAGE')
 
-    const secretArn = `arn:aws:secretsmanager:${central_region}:${accountId}:secret:wireguard/client/publickey-I6u6Kw`;
+    // Use SSM Parameter Store instead of Secrets Manager for the private key
+    const privateKeyParameterName = '/vpn-wireguard/PRIVATE_KEY';
 
     const vpnInstanceRole = new iam.Role(this, 'VPNInstanceRole', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
     });
 
     vpnInstanceRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['secretsmanager:GetSecretValue'],
-      resources: [secretArn],
+      actions: ['ssm:GetParameter'],
+      resources: [`arn:aws:ssm:${central_region}:${accountId}:parameter${privateKeyParameterName}`],
     }));
 
     const vpnInstanceProfile = new iam.CfnInstanceProfile(this, 'VPNInstanceProfile', {
@@ -93,11 +94,11 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
-      '# UserData version 1.0.2', // Increment version to force changes
+      '# UserData version 1.0.3', // Increment version to force changes
       'sudo yum install -y aws-cli',
-      `SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id arn:aws:secretsmanager:${central_region}:${accountId}:secret:wireguard/client/publickey-I6u6Kw --region ${central_region} --query SecretString --output text)`,
+      `PRIVATE_KEY_VALUE=$(aws ssm get-parameter --name ${privateKeyParameterName} --with-decryption --region ${central_region} --query Parameter.Value --output text)`,
       'sudo wg-quick down wg0 || true', // Add || true to prevent failure if wg0 isn't up
-      'echo "$SECRET_VALUE" | sudo tee -a /etc/wireguard/wg0.conf',
+      'echo "$PRIVATE_KEY_VALUE" | sudo tee -a /etc/wireguard/wg0.conf',
       'sudo wg-quick up wg0'
     );
 
@@ -106,7 +107,7 @@ export class VPNVMDeployStack extends cdk.Stack {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: wireguard_ami,
       associatePublicIpAddress: true,
-      keyPair: ec2.KeyPair.fromKeyPairName(this, 'ImportedVPNVMKeyPair', vpnVMKeyPair.keyName), // Updated to use IKeyPair
+      keyName: vpnVMKeyPair.keyName, // Use keyName for compatibility (deprecated but works)
       minCapacity: 0,
       maxCapacity: 1,
       securityGroup: vpnSecurityGroup,
