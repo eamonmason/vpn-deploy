@@ -1,0 +1,14 @@
+{
+  "name": "vpn-starter-proxy",
+  "version": "1.0.0",
+  "description": "VPN Starter Proxy Lambda Function",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
