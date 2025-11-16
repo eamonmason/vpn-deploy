@@ -49,6 +49,7 @@ X-Api-Key: <your-api-key>
 - `eu-west-2` - Europe (London)
 - `us-east-1` - US East (N. Virginia)
 - `eu-north-1` - Europe (Stockholm)
+- `ap-southeast-2` - Asia Pacific (Sydney)
 
 **Example using curl:**
 
@@ -363,7 +364,7 @@ aws logs tail /aws/lambda/VPNToggleFunction --follow
 
 **API returns 400 Bad Request:**
 
-- Ensure region is one of: `eu-west-2`, `us-east-1`, `eu-north-1`
+- Ensure region is one of: `eu-west-2`, `us-east-1`, `eu-north-1`, `ap-southeast-2`
 - Verify IP address is in valid IPv4 or IPv6 format
 - Check JSON request body is properly formatted
 
