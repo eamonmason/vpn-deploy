@@ -146,7 +146,9 @@ export class VPNLambdaDeployStack extends cdk.Stack {
               'bash', '-c',
               'cp -r /asset-input/* /asset-output/ && ' +
               'cd /asset-output && ' +
-              'npm install --omit=dev --production'
+              'npm install && ' +
+              'npx tsc && ' +
+              'npm prune --production'
             ],
           },
         }),
