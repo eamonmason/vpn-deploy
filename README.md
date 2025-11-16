@@ -46,9 +46,9 @@ X-Api-Key: <your-api-key>
 
 **Available Regions:**
 
-- `eu-west-1` - Europe (Ireland)
+- `eu-west-2` - Europe (London)
 - `us-east-1` - US East (N. Virginia)
-- `ap-southeast-2` - Asia Pacific (Sydney)
+- `eu-north-1` - Europe (Stockholm)
 
 **Example using curl:**
 
@@ -57,7 +57,7 @@ curl -X POST "https://your-api-gateway-url/prod/start-vpn" \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: your-api-key" \
   -d '{
-    "region": "eu-west-1",
+    "region": "eu-west-2",
     "whitelist_ip": "1.2.3.4"
   }'
 ```
@@ -103,7 +103,7 @@ To create an iOS Shortcut for starting your VPN:
    - JSON structure:
      ```json
      {
-       "region": "eu-west-1",
+       "region": "eu-west-2",
        "whitelist_ip": "Get Current IP Address"
      }
      ```
@@ -363,7 +363,7 @@ aws logs tail /aws/lambda/VPNToggleFunction --follow
 
 **API returns 400 Bad Request:**
 
-- Ensure region is one of: `eu-west-1`, `us-east-1`, `ap-southeast-2`
+- Ensure region is one of: `eu-west-2`, `us-east-1`, `eu-north-1`
 - Verify IP address is in valid IPv4 or IPv6 format
 - Check JSON request body is properly formatted
 
