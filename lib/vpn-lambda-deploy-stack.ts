@@ -140,7 +140,7 @@ export class VPNLambdaDeployStack extends cdk.Stack {
       const starterProxyFunction = new lambda.Function(this, 'VPNStarterProxyFunction', {
         code: lambda.Code.fromAsset('src/vpn_starter_proxy', {
           bundling: {
-            image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+            image: lambda.Runtime.NODEJS_22_X.bundlingImage,
             user: 'root',
             command: [
               'bash', '-c',
@@ -153,7 +153,7 @@ export class VPNLambdaDeployStack extends cdk.Stack {
           },
         }),
         handler: 'index.handler',
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_22_X,
         environment: {
           TOPIC_ARN: receive_topic.topicArn,
           API_KEY: apiKeySecret.secretValueFromJson('apiKey').unsafeUnwrap(),
