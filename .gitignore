@@ -9,3 +9,4 @@ cdk.out
 .env
 __pycache__
 .venv
+.claude/settings.local.json
