@@ -3,7 +3,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const TOPIC_ARN = process.env.TOPIC_ARN;
 const ALLOWED_API_KEY = process.env.API_KEY;
-const ALLOWED_REGIONS = ['eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'none'];
+const ALLOWED_REGIONS = ['eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'ca-west-1', 'none'];
 
 interface VPNRequest {
   apiKey?: string;
