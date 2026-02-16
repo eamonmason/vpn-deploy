@@ -21,7 +21,7 @@ from .aws_helpers import (
     update_security_group,
 )
 
-VALID_ZONES = ["us-east-1", "eu-north-1", "eu-west-2", "ap-southeast-2", "ca-west-1"]
+VALID_ZONES = ["us-east-1", "eu-north-1", "eu-west-2", "ap-southeast-2", "ca-central-1"]
 # create least privilegd role for this feature
 
 if len(logging.getLogger().handlers) > 0:
