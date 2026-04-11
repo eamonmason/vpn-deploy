@@ -28,8 +28,8 @@ export class VPNPipelineStack extends cdk.Stack {
           connectionArn: `arn:aws:codeconnections:${this.region}:${this.account}:connection/18ff9d6f-e1c9-4482-8ece-f2c4b275841e`
         }),
         commands: [
-          'npm ci',          
-          'npx cdk synth',
+          'npm ci',
+          './node_modules/.bin/cdk synth',
         ],
         buildEnvironment: {
           environmentVariables: {
