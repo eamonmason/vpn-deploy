@@ -103,7 +103,7 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {
       vpc,
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.SMALL),
       machineImage: wireguard_ami,
       associatePublicIpAddress: true,
       keyPair: ec2.KeyPair.fromKeyPairName(this, 'ImportedVPNVMKeyPair', vpnVMKeyPair.keyName), // Updated to use IKeyPair
