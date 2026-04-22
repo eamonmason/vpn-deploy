@@ -248,7 +248,32 @@ Provides HTTP API endpoint for starting VPN instances:
    export ZONE_NAME=yourdomain.com
    ```
 
-4. **Compile the VPN Starter Proxy Lambda:**
+4. **Populate SSM Parameter Store:**
+
+   ```sh
+   export AWS_REGION=<myregion>
+   aws ssm put-parameter --name "/vpn-wireguard/AWS_REGION" --value "us-east-1" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/PRIVATE_IP_CIDR" --value "10.0.0.1/32" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/PUBLIC_KEY" --value "ssh-rsa xxxxx" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE" --value "wireguard-server-2023-11-21-1150" --type SecureString
+   aws ssm put-parameter --name "/vpn-wireguard/ZONE_NAME" --value "acme.com" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/RECORD_NAME" --value "vpn.acme.com" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/PRIVATE_KEY" --value "<wireguard-client-config>" --type SecureString
+   ```
+
+   To verify parameters:
+
+   ```sh
+   aws ssm get-parameter --name "/vpn-wireguard/AWS_REGION"
+   aws ssm get-parameter --name "/vpn-wireguard/PRIVATE_IP_CIDR"
+   aws ssm get-parameter --name "/vpn-wireguard/PUBLIC_KEY"
+   aws ssm get-parameter --name "/vpn-wireguard/ZONE_NAME"
+   aws ssm get-parameter --name "/vpn-wireguard/RECORD_NAME"
+   aws ssm get-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE"
+   aws ssm get-parameter --name "/vpn-wireguard/PRIVATE_KEY" --with-decryption
+   ```
+
+5. **Compile the VPN Starter Proxy Lambda:**
 
    ```bash
    cd src/vpn_starter_proxy
@@ -382,6 +407,17 @@ aws logs tail /aws/lambda/VPNToggleFunction --follow
 - Ensure Docker is running (required for Lambda bundling)
 - Check AWS credentials are configured correctly
 - Verify IAM permissions are sufficient
+
+### Migration from Secrets Manager
+
+If you have existing secrets in AWS Secrets Manager, use the migration script to convert them to SSM parameters:
+
+```sh
+cd migration
+python3 migrate-secrets-to-parameters.py --region eu-west-1 --all-regions
+```
+
+See [migration/README.md](migration/README.md) for detailed migration instructions.
 
 ### Updating the Infrastructure
 
