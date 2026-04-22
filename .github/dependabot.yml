@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      aws-cdk:
+        patterns:
+          - "aws-cdk*"
+          - "@aws-cdk/*"
+      jest:
+        patterns:
+          - "jest*"
+          - "@jest/*"
+          - "ts-jest"
+          - "babel-jest"
+          - "@types/jest"
+      typescript:
+        patterns:
+          - "typescript"
+          - "ts-node"
+          - "@types/*"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      aws-sdk:
+        patterns:
+          - "boto3"
+          - "botocore"
+          - "s3transfer"
+      pydantic:
+        patterns:
+          - "pydantic*"
+      linting:
+        patterns:
+          - "flake8*"
+          - "pylint*"
+          - "pydocstyle"
+          - "prospector"
