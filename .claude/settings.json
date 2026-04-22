@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api repos/eamonmason/vpn-deploy/dependabot/alerts*)",
+      "Bash(gh api repos/eamonmason/vpn-deploy/code-scanning/alerts*)"
+    ]
+  }
+}
