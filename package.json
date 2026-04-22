@@ -24,5 +24,10 @@
     "constructs": "^10.4.2",
     "fast-xml-parser": "^5.5.7",
     "source-map-support": "^0.5.21"
+  },
+  "overrides": {
+    "@jest/reporters": { "glob": "^11.0.0" },
+    "jest-config": { "glob": "^11.0.0" },
+    "jest-runtime": { "glob": "^11.0.0" }
   }
 }
