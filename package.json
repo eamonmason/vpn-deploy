@@ -28,6 +28,8 @@
   "overrides": {
     "@jest/reporters": { "glob": "^11.0.0" },
     "jest-config": { "glob": "^11.0.0" },
-    "jest-runtime": { "glob": "^11.0.0" }
+    "jest-runtime": { "glob": "^11.0.0" },
+    "ts-node": { "diff": "4.0.4" },
+    "anymatch": { "picomatch": "2.3.2" }
   }
 }
