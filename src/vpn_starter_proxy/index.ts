@@ -1,9 +1,26 @@
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const TOPIC_ARN = process.env.TOPIC_ARN;
-const ALLOWED_API_KEY = process.env.API_KEY;
+const SECRET_ARN = process.env.SECRET_ARN;
 const ALLOWED_REGIONS = ['eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'ca-central-1', 'eu-west-3', 'none'];
+
+const secretsClient = new SecretsManagerClient({});
+// Cache with a 5-minute TTL so rotated secrets are picked up without a cold start.
+const KEY_CACHE_TTL_MS = 5 * 60 * 1000;
+let cachedApiKey: string | undefined;
+let cacheExpiresAt = 0;
+
+async function getApiKey(): Promise<string | undefined> {
+  if (!SECRET_ARN) return undefined;
+  const now = Date.now();
+  if (cachedApiKey && now < cacheExpiresAt) return cachedApiKey;
+  const resp = await secretsClient.send(new GetSecretValueCommand({ SecretId: SECRET_ARN }));
+  cachedApiKey = JSON.parse(resp.SecretString!).apiKey as string;
+  cacheExpiresAt = now + KEY_CACHE_TTL_MS;
+  return cachedApiKey;
+}
 
 interface VPNRequest {
   apiKey?: string;
@@ -70,9 +87,10 @@ export const handler = async (
     }
 
     // API key validation
-    if (ALLOWED_API_KEY) {
+    const allowedApiKey = await getApiKey();
+    if (allowedApiKey) {
       const providedKey = body.apiKey || event.headers['X-Api-Key'] || event.headers['x-api-key'];
-      if (providedKey !== ALLOWED_API_KEY) {
+      if (providedKey !== allowedApiKey) {
         console.warn('Unauthorized access attempt');
         return createResponse(401, { error: 'Unauthorized' });
       }
