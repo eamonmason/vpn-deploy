@@ -22,10 +22,15 @@
     "strictPropertyInitialization": false,
     "typeRoots": [
       "./node_modules/@types"
+    ],
+    "types": [
+      "node",
+      "jest"
     ]
   },
   "exclude": [
     "node_modules",
-    "cdk.out"
+    "cdk.out",
+    "src/vpn_starter_proxy"
   ]
 }

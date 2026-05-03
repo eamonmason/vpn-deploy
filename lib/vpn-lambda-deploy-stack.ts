@@ -114,6 +114,29 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         },
       });
 
+      // Rotation Lambda: regenerates a random alphanumeric API key on schedule
+      const apiKeyRotatorFunction = new lambda.Function(this, 'ApiKeyRotatorFunction', {
+        code: lambda.Code.fromAsset('src/api_key_rotator'),
+        handler: 'handler.handler',
+        runtime: lambda.Runtime.PYTHON_3_11,
+        timeout: cdk.Duration.seconds(30),
+        description: 'Rotates the VPN Starter Proxy API key in Secrets Manager',
+      });
+      apiKeySecret.grantWrite(apiKeyRotatorFunction);
+      apiKeySecret.grantRead(apiKeyRotatorFunction);
+
+      // Allow Secrets Manager to invoke the rotation Lambda
+      apiKeyRotatorFunction.addPermission('SecretsManagerInvoke', {
+        principal: new iam.ServicePrincipal('secretsmanager.amazonaws.com'),
+        sourceArn: apiKeySecret.secretArn,
+      });
+
+      apiKeySecret.addRotationSchedule('ApiKeyRotationSchedule', {
+        rotationLambda: apiKeyRotatorFunction,
+        automaticallyAfter: cdk.Duration.days(30),
+        rotateImmediatelyOnUpdate: false,
+      });
+
       // IAM role for VPN Starter Proxy Lambda
       const starterProxyRole = new iam.Role(this, 'VPNStarterProxyRole', {
         assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -156,7 +179,7 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         environment: {
           TOPIC_ARN: receive_topic.topicArn,
-          API_KEY: apiKeySecret.secretValueFromJson('apiKey').unsafeUnwrap(),
+          SECRET_ARN: apiKeySecret.secretArn,
         },
         role: starterProxyRole,
         timeout: cdk.Duration.seconds(30),
