@@ -1,37 +1,41 @@
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const TOPIC_ARN = process.env.TOPIC_ARN;
-const SECRET_ARN = process.env.SECRET_ARN;
+const API_KEY_PARAM_NAME = process.env.API_KEY_PARAM_NAME;
 const ALLOWED_REGIONS = ['eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'ca-central-1', 'eu-west-3', 'none'];
 
-const secretsClient = new SecretsManagerClient({});
-// Cache with a 5-minute TTL so rotated secrets are picked up without a cold start.
+const ssmClient = new SSMClient({});
+// Cache with a 5-minute TTL to minimize SSM API calls while allowing for manual updates.
 const KEY_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedApiKey: string | undefined;
 let cacheExpiresAt = 0;
 
 async function getApiKey(): Promise<string | undefined> {
-  if (!SECRET_ARN) {
-    console.error('SECRET_ARN environment variable not set');
+  if (!API_KEY_PARAM_NAME) {
+    console.error('API_KEY_PARAM_NAME environment variable not set');
     return undefined;
   }
   const now = Date.now();
   if (cachedApiKey && now < cacheExpiresAt) return cachedApiKey;
   
   try {
-    const resp = await secretsClient.send(new GetSecretValueCommand({ SecretId: SECRET_ARN }));
-    if (!resp.SecretString) {
-      console.error('Secret string is empty');
+    const resp = await ssmClient.send(new GetParameterCommand({ 
+      Name: API_KEY_PARAM_NAME,
+      WithDecryption: true 
+    }));
+    
+    if (!resp.Parameter?.Value) {
+      console.error('SSM Parameter value is empty');
       return undefined;
     }
-    const secretData = JSON.parse(resp.SecretString);
-    cachedApiKey = secretData.apiKey;
+    
+    cachedApiKey = resp.Parameter.Value;
     cacheExpiresAt = now + KEY_CACHE_TTL_MS;
     return cachedApiKey;
   } catch (error) {
-    console.error('Error fetching secret:', error);
+    console.error('Error fetching API key from SSM:', error);
     return undefined;
   }
 }
@@ -114,7 +118,7 @@ export const handler = async (
         return createResponse(401, { error: 'Unauthorized' });
       }
     } else {
-      console.error('Could not retrieve allowed API key from Secrets Manager');
+      console.error('Could not retrieve allowed API key from SSM');
       return createResponse(500, { error: 'Server authentication configuration error' });
     }
 

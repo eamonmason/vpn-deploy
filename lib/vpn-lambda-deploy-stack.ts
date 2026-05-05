@@ -6,7 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 export class VPNLambdaDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -102,39 +102,11 @@ export class VPNLambdaDeployStack extends cdk.Stack {
       });
 
       // VPN Starter Proxy Lambda Function
-      // Generate or retrieve API key from Secrets Manager
-      const apiKeySecret = new secretsmanager.Secret(this, 'VPNStarterProxyApiKey', {
-        secretName: 'vpn-starter-proxy-api-key',
-        description: 'API key for VPN Starter Proxy Lambda function',
-        generateSecretString: {
-          secretStringTemplate: JSON.stringify({ username: 'vpn-proxy' }),
-          generateStringKey: 'apiKey',
-          excludePunctuation: true,
-          passwordLength: 32,
-        },
-      });
-
-      // Rotation Lambda: regenerates a random alphanumeric API key on schedule
-      const apiKeyRotatorFunction = new lambda.Function(this, 'ApiKeyRotatorFunction', {
-        code: lambda.Code.fromAsset('src/api_key_rotator'),
-        handler: 'handler.handler',
-        runtime: lambda.Runtime.PYTHON_3_11,
-        timeout: cdk.Duration.seconds(30),
-        description: 'Rotates the VPN Starter Proxy API key in Secrets Manager',
-      });
-      apiKeySecret.grantWrite(apiKeyRotatorFunction);
-      apiKeySecret.grantRead(apiKeyRotatorFunction);
-
-      // Allow Secrets Manager to invoke the rotation Lambda
-      apiKeyRotatorFunction.addPermission('SecretsManagerInvoke', {
-        principal: new iam.ServicePrincipal('secretsmanager.amazonaws.com'),
-        sourceArn: apiKeySecret.secretArn,
-      });
-
-      apiKeySecret.addRotationSchedule('ApiKeyRotationSchedule', {
-        rotationLambda: apiKeyRotatorFunction,
-        automaticallyAfter: cdk.Duration.days(30),
-        rotateImmediatelyOnUpdate: false,
+      // Retrieve API key from SSM Parameter Store (SecureString)
+      // Note: Initial value must be set manually or via AWS CLI after first deployment if not already present.
+      const apiKeyParamName = '/vpn-starter-proxy/api-key';
+      const apiKeyParameter = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'VPNStarterProxyApiKeyParam', {
+        parameterName: apiKeyParamName,
       });
 
       // IAM role for VPN Starter Proxy Lambda
@@ -156,8 +128,8 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         },
       });
 
-      // Grant read access to the API key secret
-      apiKeySecret.grantRead(starterProxyRole);
+      // Grant read access to the SSM parameter
+      apiKeyParameter.grantRead(starterProxyRole);
 
       // VPN Starter Proxy Lambda function
       const starterProxyFunction = new lambda.Function(this, 'VPNStarterProxyFunction', {
@@ -179,7 +151,7 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         environment: {
           TOPIC_ARN: receive_topic.topicArn,
-          SECRET_ARN: apiKeySecret.secretArn,
+          API_KEY_PARAM_NAME: apiKeyParamName,
         },
         role: starterProxyRole,
         timeout: cdk.Duration.seconds(30),
@@ -240,17 +212,17 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         stage: api.deploymentStage,
       });
 
-      // Output the API endpoint and API key secret ARN
+      // Output the API endpoint and SSM parameter name
       new cdk.CfnOutput(this, 'VPNStarterProxyApiEndpoint', {
         value: `${api.url}start-vpn`,
         description: 'VPN Starter Proxy API Endpoint',
         exportName: 'VPNStarterProxyApiEndpoint',
       });
 
-      new cdk.CfnOutput(this, 'VPNStarterProxyApiKeySecretArn', {
-        value: apiKeySecret.secretArn,
-        description: 'ARN of the Secrets Manager secret containing the API key',
-        exportName: 'VPNStarterProxyApiKeySecretArn',
+      new cdk.CfnOutput(this, 'VPNStarterProxyApiKeyParamName', {
+        value: apiKeyParamName,
+        description: 'Name of the SSM parameter containing the API key',
+        exportName: 'VPNStarterProxyApiKeyParamName',
       });
   }
 }

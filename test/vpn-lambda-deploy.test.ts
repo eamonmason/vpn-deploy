@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Template, Match } from 'aws-cdk-lib/assertions';
 import { VPNLambdaDeployStack } from '../lib/vpn-lambda-deploy-stack';
 
 // Skip Docker bundling in unit tests by replacing every Code.fromAsset call with a
@@ -41,53 +41,51 @@ function makeStack() {
   });
 }
 
-test('VPN Starter Proxy Lambda passes SECRET_ARN, not a plain API_KEY value', () => {
+test('VPN Starter Proxy Lambda passes API_KEY_PARAM_NAME and has SSM permissions', () => {
   const template = Template.fromStack(makeStack());
 
-  // The Lambda environment should reference the secret ARN dynamically,
-  // not an unsafeUnwrapped secret value baked in at synthesis.
+  // The Lambda environment should reference the SSM parameter name
   const functions = template.findResources('AWS::Lambda::Function', {
     Properties: { Handler: 'index.handler' },
   });
   const fnProps = Object.values(functions)[0] as { Properties: { Environment?: { Variables?: Record<string, unknown> } } };
   const envVars = fnProps.Properties.Environment?.Variables ?? {};
 
-  expect(envVars).toHaveProperty('SECRET_ARN');
+  expect(envVars).toHaveProperty('API_KEY_PARAM_NAME', '/vpn-starter-proxy/api-key');
+  expect(envVars).not.toHaveProperty('SECRET_ARN');
   expect(envVars).not.toHaveProperty('API_KEY');
-});
 
-test('API key secret has a rotation schedule configured', () => {
-  const template = Template.fromStack(makeStack());
-
-  // Secrets Manager rotation schedule resource must exist with a 30-day schedule.
-  // CDK renders Duration.days(30) as a rate() ScheduleExpression in CloudFormation.
-  template.resourceCountIs('AWS::SecretsManager::RotationSchedule', 1);
-  template.hasResourceProperties('AWS::SecretsManager::RotationSchedule', {
-    RotationRules: {
-      ScheduleExpression: 'rate(30 days)',
-    },
-    RotateImmediatelyOnUpdate: false,
+  // Verify IAM policy for SSM GetParameter
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: [
+            'ssm:DescribeParameters',
+            'ssm:GetParameters',
+            'ssm:GetParameter',
+            'ssm:GetParameterHistory'
+          ],
+          Effect: 'Allow',
+          Resource: {
+            'Fn::Join': [
+              '',
+              [
+                'arn:',
+                { Ref: 'AWS::Partition' },
+                ':ssm:eu-west-1:123456789012:parameter/vpn-starter-proxy/api-key'
+              ]
+            ]
+          }
+        })
+      ])
+    }
   });
 });
 
-test('Rotation Lambda has secretsmanager read/write permissions', () => {
+test('No Secrets Manager rotation or secret resource remains', () => {
   const template = Template.fromStack(makeStack());
 
-  const policies = template.findResources('AWS::IAM::Policy');
-  const statements = Object.values(policies).flatMap(
-    (p: unknown) => ((p as { Properties: { PolicyDocument: { Statement: unknown[] } } }).Properties.PolicyDocument.Statement)
-  );
-
-  const secretsActions = statements
-    .filter((s: unknown) => {
-      const stmt = s as { Action?: string | string[] };
-      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action ?? ''];
-      return actions.some((a) => a.startsWith('secretsmanager:'));
-    })
-    .flatMap((s: unknown) => {
-      const stmt = s as { Action?: string | string[] };
-      return Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action ?? ''];
-    });
-
-  expect(secretsActions).toContain('secretsmanager:GetSecretValue');
+  template.resourceCountIs('AWS::SecretsManager::Secret', 0);
+  template.resourceCountIs('AWS::SecretsManager::RotationSchedule', 0);
 });
