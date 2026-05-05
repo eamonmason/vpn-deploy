@@ -13,13 +13,27 @@ let cachedApiKey: string | undefined;
 let cacheExpiresAt = 0;
 
 async function getApiKey(): Promise<string | undefined> {
-  if (!SECRET_ARN) return undefined;
+  if (!SECRET_ARN) {
+    console.error('SECRET_ARN environment variable not set');
+    return undefined;
+  }
   const now = Date.now();
   if (cachedApiKey && now < cacheExpiresAt) return cachedApiKey;
-  const resp = await secretsClient.send(new GetSecretValueCommand({ SecretId: SECRET_ARN }));
-  cachedApiKey = JSON.parse(resp.SecretString!).apiKey as string;
-  cacheExpiresAt = now + KEY_CACHE_TTL_MS;
-  return cachedApiKey;
+  
+  try {
+    const resp = await secretsClient.send(new GetSecretValueCommand({ SecretId: SECRET_ARN }));
+    if (!resp.SecretString) {
+      console.error('Secret string is empty');
+      return undefined;
+    }
+    const secretData = JSON.parse(resp.SecretString);
+    cachedApiKey = secretData.apiKey;
+    cacheExpiresAt = now + KEY_CACHE_TTL_MS;
+    return cachedApiKey;
+  } catch (error) {
+    console.error('Error fetching secret:', error);
+    return undefined;
+  }
 }
 
 interface VPNRequest {
@@ -89,11 +103,19 @@ export const handler = async (
     // API key validation
     const allowedApiKey = await getApiKey();
     if (allowedApiKey) {
-      const providedKey = body.apiKey || event.headers['X-Api-Key'] || event.headers['x-api-key'];
+      // Case-insensitive header lookup
+      const headers = event.headers || {};
+      const headerKeys = Object.keys(headers);
+      const apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');
+      const providedKey = body.apiKey || (apiKeyHeader ? headers[apiKeyHeader] : undefined);
+      
       if (providedKey !== allowedApiKey) {
-        console.warn('Unauthorized access attempt');
+        console.warn(`Unauthorized access attempt. Header found: ${!!apiKeyHeader}, Body key found: ${!!body.apiKey}`);
         return createResponse(401, { error: 'Unauthorized' });
       }
+    } else {
+      console.error('Could not retrieve allowed API key from Secrets Manager');
+      return createResponse(500, { error: 'Server authentication configuration error' });
     }
 
     // Validate required fields
