@@ -41,6 +41,7 @@
     "anymatch": {
       "picomatch": "2.3.2"
     },
+    "babel-plugin-istanbul": "^8.0.0",
     "fast-xml-builder": "^1.1.7",
     "fast-uri": "^3.1.2"
   }
