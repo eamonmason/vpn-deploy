@@ -4,7 +4,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const TOPIC_ARN = process.env.TOPIC_ARN;
 const API_KEY_PARAM_NAME = process.env.API_KEY_PARAM_NAME;
-const ALLOWED_REGIONS = ['eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'ca-central-1', 'eu-west-3', 'none'];
+const ALLOWED_REGIONS = ['eu-west-1', 'eu-west-2', 'us-east-1', 'eu-north-1', 'ap-southeast-2', 'ca-central-1', 'eu-west-3', 'none'];
 
 const ssmClient = new SSMClient({});
 // Cache with a 5-minute TTL to minimize SSM API calls while allowing for manual updates.
