@@ -81,6 +81,9 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const vpnInstanceRole = new iam.Role(this, 'VPNInstanceRole', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')
+      ]
     });
 
     vpnInstanceRole.addToPolicy(new iam.PolicyStatement({
@@ -104,7 +107,7 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {
       vpc,
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.SMALL),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.C6G, ec2.InstanceSize.MEDIUM),
       machineImage: wireguard_ami,
       associatePublicIpAddress: true,
       keyPair: ec2.KeyPair.fromKeyPairName(this, 'ImportedVPNVMKeyPair', vpnVMKeyPair.keyName),
