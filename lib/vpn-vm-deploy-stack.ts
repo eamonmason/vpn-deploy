@@ -60,9 +60,9 @@ export class VPNVMDeployStack extends cdk.Stack {
       'allow ssh access from my IP address');
 
     vpnSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(PRIVATE_IP_CIDR),
+      ec2.Peer.anyIpv4(),
       ec2.Port.udp(51820),
-      'allow vpn access from my IP address');
+      'allow wireguard vpn access from anywhere (cryptographically secured)');
 
     const stack = cdk.Stack.of(this);
     const stack_id = stack.stackId.substring(stack.stackId.lastIndexOf('/') + 1);

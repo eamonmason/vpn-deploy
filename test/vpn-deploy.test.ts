@@ -4,7 +4,11 @@ import { VPNVMDeployStack } from '../lib/vpn-vm-deploy-stack';
 
 // Test for SSM parameter usage instead of Secrets Manager
 test('VPN Stack uses SSM Parameter Store instead of Secrets Manager', () => {
-  const app = new cdk.App();
+  const app = new cdk.App({
+    context: {
+      "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true
+    }
+  });
   
   // Set required environment variables for the test
   process.env.CDK_DEFAULT_ACCOUNT = '123456789012';

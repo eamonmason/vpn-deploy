@@ -123,7 +123,11 @@ def update_security_group(
     authorize_permissions = []
     for p in permissions:
         q = p.copy()
-        q["IpRanges"] = [{"CidrIp": f"{allowed_client_ip}/32"}]
+        # If this is the UDP 51820 WireGuard rule, keep it open to the world
+        if q.get("IpProtocol") == "udp" and q.get("FromPort") == 51820 and q.get("ToPort") == 51820:
+            pass
+        else:
+            q["IpRanges"] = [{"CidrIp": f"{allowed_client_ip}/32"}]
         authorize_permissions.append(q)
     if (
         len(permissions) > 0
