@@ -144,7 +144,7 @@ def main():
     args = parser.parse_args()
     
     # VPN regions as defined in the code
-    vpn_regions = ["us-east-1", "eu-west-2", "eu-north-1", "ap-southeast-2", "ca-central-1", "eu-west-3"]
+    vpn_regions = ["eu-west-1", "us-east-1", "eu-west-2", "eu-north-1", "ap-southeast-2", "ca-central-1", "eu-west-3"]
     central_region = "eu-west-1"
     
     regions_to_migrate = []
