@@ -76,8 +76,13 @@ export class VPNVMDeployStack extends cdk.Stack {
     // Find the Wireguard AMI I created in various regions    
     const wireguard_ami = ec2.MachineImage.fromSsmParameter('/vpn-wireguard/WIREGUARD_IMAGE')
 
-    // Use SSM Parameter Store instead of Secrets Manager for the private key
-    const privateKeyParameterName = '/vpn-wireguard/PRIVATE_KEY';
+    // WireGuard config inputs live in SSM in the central region; the AMI's
+    // render script fetches them at boot (see vpn-image render-wg0.sh)
+    const wireguardParameterNames = [
+      '/vpn-wireguard/SERVER_PRIVATE_KEY',
+      '/vpn-wireguard/CLIENT_PEERS',
+      '/vpn-wireguard/MTU',
+    ];
 
     const vpnInstanceRole = new iam.Role(this, 'VPNInstanceRole', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
@@ -88,7 +93,8 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     vpnInstanceRole.addToPolicy(new iam.PolicyStatement({
       actions: ['ssm:GetParameter'],
-      resources: [`arn:aws:ssm:${central_region}:${accountId}:parameter${privateKeyParameterName}`],
+      resources: wireguardParameterNames.map(
+        (name) => `arn:aws:ssm:${central_region}:${accountId}:parameter${name}`),
     }));
 
     const vpnInstanceProfile = new iam.CfnInstanceProfile(this, 'VPNInstanceProfile', {
@@ -97,12 +103,9 @@ export class VPNVMDeployStack extends cdk.Stack {
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
-      '# UserData version 1.0.3', // Increment version to force changes
-      'sudo yum install -y aws-cli',
-      `PRIVATE_KEY_VALUE=$(aws ssm get-parameter --name ${privateKeyParameterName} --with-decryption --region ${central_region} --query Parameter.Value --output text)`,
-      'sudo wg-quick down wg0 || true', // Add || true to prevent failure if wg0 isn't up
-      'echo "$PRIVATE_KEY_VALUE" | sudo tee -a /etc/wireguard/wg0.conf',
-      'sudo wg-quick up wg0'
+      '# UserData version 2.0.0', // Increment version to force changes
+      `SSM_REGION=${central_region} /opt/wireguard/render-wg0.sh`,
+      'systemctl enable --now wg-quick@wg0'
     );
 
     const vpnASG = new autoscaling.AutoScalingGroup(this, 'VPNASG', {

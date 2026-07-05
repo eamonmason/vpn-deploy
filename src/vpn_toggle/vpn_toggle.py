@@ -59,8 +59,9 @@ def enable_vpn(asg, region: str, a_record: str, hosted_zone_name: str, client_ip
     new_capacity = update_asg_capacity(asg, region, 1)
     if new_capacity == 1:
         logger.debug("Waiting for the VPN VM to start in region %s", region)
-        # Check ASG if VM is available, up to five times
-        for _ in range(5):
+        # Check ASG if VM is available, for up to a minute (instances routinely
+        # take longer than 25s to reach "running")
+        for _ in range(12):
             up_asg = get_asg(region)
             try:
                 instance = get_instance_from_asg(up_asg, region)

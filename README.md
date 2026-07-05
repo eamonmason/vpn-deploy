@@ -258,8 +258,37 @@ Provides HTTP API endpoint for starting VPN instances:
    aws ssm put-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE" --value "wireguard-server-2023-11-21-1150" --type SecureString
    aws ssm put-parameter --name "/vpn-wireguard/ZONE_NAME" --value "acme.com" --type String
    aws ssm put-parameter --name "/vpn-wireguard/RECORD_NAME" --value "vpn.acme.com" --type String
-   aws ssm put-parameter --name "/vpn-wireguard/PRIVATE_KEY" --value "<wireguard-client-config>" --type SecureString
    ```
+
+   The WireGuard server config is rendered at instance boot from these
+   parameters in the central region (`eu-west-1`) — the AMI holds no keys:
+
+   ```sh
+   # Server's WireGuard private key
+   aws ssm put-parameter --region eu-west-1 --name "/vpn-wireguard/SERVER_PRIVATE_KEY" \
+     --type SecureString --value "<server-wireguard-private-key>"
+
+   # One line per client device: <device-public-key>,<tunnel-ip/32>
+   # Every device gets its OWN key pair and tunnel IP - never share a key
+   # between devices (the server flaps between endpoints if you do).
+   aws ssm put-parameter --region eu-west-1 --name "/vpn-wireguard/CLIENT_PEERS" \
+     --type String --value "$(printf '%s\n' \
+       '<device1-public-key>,10.0.0.2/32' \
+       '<device2-public-key>,10.0.0.3/32')"
+
+   # Tunnel MTU, used by the server; client configs must use the same value.
+   # Optional - the server defaults to 1420 if unset. See the vpn-client repo
+   # README for how to probe your path MTU and pick this value.
+   aws ssm put-parameter --region eu-west-1 --name "/vpn-wireguard/MTU" \
+     --type String --value "1420"
+   ```
+
+   > **Migrating from the legacy setup:** the old `/vpn-wireguard/PRIVATE_KEY`
+   > parameter (appended verbatim to `wg0.conf` by the previous user-data) is no
+   > longer read. Inspect its contents first
+   > (`aws ssm get-parameter --name /vpn-wireguard/PRIVATE_KEY --with-decryption`),
+   > carry anything still needed over to `SERVER_PRIVATE_KEY`/`CLIENT_PEERS`,
+   > then delete it.
 
    To verify parameters:
 
@@ -270,7 +299,9 @@ Provides HTTP API endpoint for starting VPN instances:
    aws ssm get-parameter --name "/vpn-wireguard/ZONE_NAME"
    aws ssm get-parameter --name "/vpn-wireguard/RECORD_NAME"
    aws ssm get-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE"
-   aws ssm get-parameter --name "/vpn-wireguard/PRIVATE_KEY" --with-decryption
+   aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/SERVER_PRIVATE_KEY" --with-decryption
+   aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/CLIENT_PEERS"
+   aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/MTU"
    ```
 
 5. **Compile the VPN Starter Proxy Lambda:**
