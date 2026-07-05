@@ -27,7 +27,11 @@ test('VPN Stack uses SSM Parameter Store instead of Secrets Manager', () => {
         {
           Action: 'ssm:GetParameter',
           Effect: 'Allow',
-          Resource: 'arn:aws:ssm:eu-west-1:123456789012:parameter/vpn-wireguard/PRIVATE_KEY'
+          Resource: [
+            'arn:aws:ssm:eu-west-1:123456789012:parameter/vpn-wireguard/SERVER_PRIVATE_KEY',
+            'arn:aws:ssm:eu-west-1:123456789012:parameter/vpn-wireguard/CLIENT_PEERS',
+            'arn:aws:ssm:eu-west-1:123456789012:parameter/vpn-wireguard/MTU'
+          ]
         }
       ]
     }

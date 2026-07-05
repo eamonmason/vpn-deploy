@@ -34,10 +34,10 @@ def main():
     # Check TypeScript stack file
     typescript_file = "lib/vpn-vm-deploy-stack.ts"
     ts_required = [
-        "'/vpn-wireguard/PRIVATE_KEY'",
+        "'/vpn-wireguard/SERVER_PRIVATE_KEY'",
+        "'/vpn-wireguard/CLIENT_PEERS'",
         "ssm:GetParameter",
-        "aws ssm get-parameter",
-        "--with-decryption"
+        "render-wg0.sh"
     ]
     ts_forbidden = [
         "secretsmanager:GetSecretValue",
@@ -54,9 +54,9 @@ def main():
     js_file = "lib/vpn-vm-deploy-stack.js"
     if os.path.exists(js_file):
         js_required = [
-            "'/vpn-wireguard/PRIVATE_KEY'",
+            "'/vpn-wireguard/SERVER_PRIVATE_KEY'",
             "'ssm:GetParameter'",
-            "aws ssm get-parameter"
+            "render-wg0.sh"
         ]
         js_forbidden = [
             "secretsmanager",
