@@ -39,7 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9
+      # setup-uv publishes no bare major tag (v9.0.0 exists, v9 does not).
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           python-version: '3.11'
 
