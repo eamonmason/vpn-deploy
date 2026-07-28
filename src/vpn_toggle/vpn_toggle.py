@@ -8,7 +8,6 @@ import logging.config
 import os
 import sys
 import time
-from typing import Optional
 from urllib import request
 
 from pydantic import BaseModel
@@ -103,7 +102,7 @@ def manage_vpn(
             disable_vpn(asg, region)
 
 
-def handler(event: dict, context: Optional[dict] = None):
+def handler(event: dict, context: dict | None = None):
     """Lambda handler"""
     a_record_name = os.environ["A_RECORD_NAME"]
     domain_name = os.environ["DOMAIN_NAME"]
