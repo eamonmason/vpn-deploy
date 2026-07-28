@@ -9,6 +9,13 @@ updates:
       npm-dependencies:
         patterns: ["*"]
     open-pull-requests-limit: 10
+    ignore:
+      # TypeScript 7 is the native port and drops the JS compiler API that
+      # ts-jest needs; ts-jest 29.x still declares `typescript: >=4.3 <7`.
+      # Bumping to 7 breaks the whole jest suite (see PR #85). Remove this
+      # once a ts-jest release supports TypeScript 7.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "pip"
     directory: "/"

@@ -3,7 +3,6 @@ Helper functions for interacting with AWS.
 """
 
 import logging
-from typing import List
 
 import boto3
 from pydantic import BaseModel
@@ -24,12 +23,12 @@ class SecurityGroupRule(BaseModel):
     IpProtocol: str
     FromPort: int
     ToPort: int
-    IpRanges: List[dict]
+    IpRanges: list[dict]
 
 
 class SecurityGroup(BaseModel):
     GroupId: str
-    IpPermissions: List[SecurityGroupRule]
+    IpPermissions: list[SecurityGroupRule]
 
 
 class AutoScalingGroup(BaseModel):
@@ -40,8 +39,8 @@ class AutoScalingGroup(BaseModel):
 class Ec2Instance(BaseModel):
     InstanceId: str
     State: dict
-    SecurityGroups: List[dict]
-    NetworkInterfaces: List[dict]
+    SecurityGroups: list[dict]
+    NetworkInterfaces: list[dict]
 
 
 def get_asg(aws_region: str) -> AutoScalingGroup:

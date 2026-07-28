@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cdk:
+    name: Build & test (CDK / TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and compile
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+  lambda:
+    name: Lint (vpn_toggle / Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9
+        with:
+          python-version: '3.11'
+
+      - name: Lint
+        run: uvx ruff check src/vpn_toggle
+
+      # The Lambda has no unit tests yet (tests/test_vpn_toggle.py is empty), so
+      # this at least catches syntax errors and broken imports in deployed code.
+      - name: Import check
+        run: |
+          uv run --no-project --python 3.11 \
+            --with boto3 --with pydantic --with urllib3 \
+            python -c "
+          import sys; sys.path.insert(0, 'src')
+          from vpn_toggle import vpn_toggle, aws_helpers
+          assert callable(vpn_toggle.handler)
+          print('vpn_toggle imports cleanly')
+          "
