@@ -20,7 +20,7 @@
     "typescript": "~6.0.3"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.262.2",
+    "aws-cdk-lib": "^2.263.0",
     "constructs": "^10.8.0",
     "fast-xml-parser": "^5.10.1",
     "source-map-support": "^0.5.21"
