@@ -16,6 +16,8 @@ flake8 = ">=6.1,<8.0"
 prospector= ">=0.12.2,<1.20.0"
 pydocstyle = "^6.3.0"
 pylint = ">=3.0.2,<5.0.0"
+pytest = "^9.1.1"
+moto = {extras = ["autoscaling", "cloudwatch", "ec2", "sns"], version = "^5.2.2"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -31,3 +33,7 @@ target-version = "py311"
 [tool.ruff.lint]
 # pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, bugbear.
 select = ["E", "W", "F", "I", "N", "UP", "B"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
