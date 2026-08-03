@@ -89,3 +89,82 @@ test('No Secrets Manager rotation or secret resource remains', () => {
   template.resourceCountIs('AWS::SecretsManager::Secret', 0);
   template.resourceCountIs('AWS::SecretsManager::RotationSchedule', 0);
 });
+
+test('VPN Idle Shutdown Lambda is scheduled every 15 minutes with the expected env vars', () => {
+  const template = Template.fromStack(makeStack());
+
+  template.hasResourceProperties('AWS::Events::Rule', {
+    ScheduleExpression: 'rate(15 minutes)',
+    Targets: Match.arrayWith([
+      Match.objectLike({
+        Arn: Match.objectLike({ 'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('VPNIdleShutdownFunction')]) }),
+      }),
+    ]),
+  });
+
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Handler: 'vpn_toggle.idle_shutdown.handler',
+    Environment: {
+      Variables: Match.objectLike({
+        MAX_RUNTIME_MINUTES: '120',
+        GRACE_PERIOD_MINUTES: '15',
+        IDLE_WINDOW_MINUTES: '30',
+        IDLE_BYTE_THRESHOLD_BYTES: `${5 * 1024 * 1024}`,
+        NOTIFICATION_TOPIC_ARN: Match.anyValue(),
+      }),
+    },
+  });
+});
+
+test('VPN Idle Shutdown IAM role is scoped to update/describe ASG state, read CloudWatch metrics, and publish to the notification topic only', () => {
+  const template = Template.fromStack(makeStack());
+
+  // The role uses inlinePolicies, which CDK synthesizes onto the AWS::IAM::Role
+  // resource's own Policies property, not as separate AWS::IAM::Policy resources.
+  template.hasResourceProperties('AWS::IAM::Role', {
+    Policies: Match.arrayWith([
+      Match.objectLike({
+        PolicyDocument: {
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'autoscaling:UpdateAutoScalingGroup',
+              Effect: 'Allow',
+              Condition: { StringEquals: { 'aws:ResourceTag/application-name': 'wireguard-vpn' } },
+            }),
+            Match.objectLike({ Action: 'cloudwatch:GetMetricData', Effect: 'Allow' }),
+            Match.objectLike({
+              Action: 'sns:Publish',
+              Effect: 'Allow',
+              Resource: { Ref: Match.stringLikeRegexp('VPNNotificationTopic') },
+            }),
+          ]),
+        },
+      }),
+    ]),
+  });
+});
+
+test('VPN Notification Topic has an email subscription and is separate from the inbound VPN-trigger topic', () => {
+  const template = Template.fromStack(makeStack());
+
+  template.resourceCountIs('AWS::SNS::Topic', 2);
+  template.hasResourceProperties('AWS::SNS::Topic', {
+    TopicName: 'vpn-auto-stop-notifications',
+  });
+  template.hasResourceProperties('AWS::SNS::Subscription', {
+    Protocol: 'email',
+  });
+});
+
+test('VPN Idle Shutdown Lambda has its own log group', () => {
+  const template = Template.fromStack(makeStack());
+
+  template.hasResourceProperties('AWS::Logs::LogGroup', {
+    LogGroupName: {
+      'Fn::Join': [
+        '',
+        ['/aws/lambda/', { Ref: Match.stringLikeRegexp('VPNIdleShutdownFunction') }],
+      ],
+    },
+  });
+});

@@ -3,6 +3,7 @@ Helper functions for interacting with AWS.
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
 
 import boto3
 from pydantic import BaseModel
@@ -41,6 +42,7 @@ class Ec2Instance(BaseModel):
     State: dict
     SecurityGroups: list[dict]
     NetworkInterfaces: list[dict]
+    LaunchTime: datetime
 
 
 def get_asg(aws_region: str) -> AutoScalingGroup:
@@ -184,3 +186,51 @@ def set_dns_alias(
         },
         HostedZoneId=hosted_zone_id,
     )
+
+
+def get_network_bytes_sum(
+    instance_id: str, region: str, window_minutes: int, end_time: datetime | None = None
+) -> int | None:
+    """
+    Sums NetworkIn + NetworkOut for an instance over the trailing window, using the free
+    5-minute basic-monitoring datapoints (no detailed monitoring required).
+    @param end_time: the reference "now" for the window; defaults to the real current time.
+    Callers evaluating uptime and idle-traffic together should pass the same "now" they used
+    for the uptime calculation, so both checks are measured against a single consistent clock.
+    @return: total bytes transferred, or None if no datapoints are available yet
+    (e.g. a just-launched instance) - callers should treat that as "unknown", not "idle".
+    """
+    client = boto3.client("cloudwatch", region_name=region)
+    end_time = end_time or datetime.now(UTC)
+    start_time = end_time - timedelta(minutes=window_minutes)
+    response = client.get_metric_data(
+        MetricDataQueries=[
+            {
+                "Id": f"{metric.lower()}_sum",
+                "MetricStat": {
+                    "Metric": {
+                        "Namespace": "AWS/EC2",
+                        "MetricName": metric,
+                        "Dimensions": [{"Name": "InstanceId", "Value": instance_id}],
+                    },
+                    "Period": 300,
+                    "Stat": "Sum",
+                },
+            }
+            for metric in ("NetworkIn", "NetworkOut")
+        ],
+        StartTime=start_time,
+        EndTime=end_time,
+    )
+    values = [v for result in response["MetricDataResults"] for v in result["Values"]]
+    if not values:
+        return None
+    return int(sum(values))
+
+
+def publish_notification(topic_arn: str, subject: str, message: str) -> None:
+    """
+    Publishes a notification message (e.g. an auto-stop alert) to an SNS topic.
+    """
+    client = boto3.client("sns")
+    client.publish(TopicArn=topic_arn, Subject=subject, Message=message)

@@ -154,7 +154,7 @@ aws cloudformation describe-stacks \
 
 ### Architecture Overview
 
-The infrastructure consists of three main components:
+The infrastructure consists of four main components:
 
 #### 1. **VPN VM Infrastructure**
 
@@ -177,7 +177,19 @@ Manages VPN lifecycle operations:
 
 **Location:** `src/vpn_toggle/`
 
-#### 3. **VPN Starter Proxy Lambda Function** (TypeScript)
+#### 3. **VPN Idle Shutdown Lambda Function** (Python)
+
+Automatically stops a forgotten VPN instance so it doesn't keep billing:
+
+- Runs on an EventBridge schedule (every 15 minutes)
+- Stops a region's VPN if it's been idle (near-zero network traffic) past a grace
+  period, or if it's exceeded a hard maximum runtime, whichever comes first
+- Sends an email notification (via SNS) whenever it auto-stops a region
+- Shares the same code package and dependency layer as the VPN Toggle Lambda
+
+**Location:** `src/vpn_toggle/idle_shutdown.py`
+
+#### 4. **VPN Starter Proxy Lambda Function** (TypeScript)
 
 Provides HTTP API endpoint for starting VPN instances:
 
@@ -222,6 +234,8 @@ Provides HTTP API endpoint for starting VPN instances:
 - IAM role/policy creation
 - EC2 (for VPN instances)
 - Route53 (for DNS management)
+- CloudWatch (read-only, for idle-traffic metrics)
+- EventBridge (for the scheduled auto-stop check)
 
 ### Deployment
 
@@ -258,7 +272,13 @@ Provides HTTP API endpoint for starting VPN instances:
    aws ssm put-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE" --value "wireguard-server-2023-11-21-1150" --type SecureString
    aws ssm put-parameter --name "/vpn-wireguard/ZONE_NAME" --value "acme.com" --type String
    aws ssm put-parameter --name "/vpn-wireguard/RECORD_NAME" --value "vpn.acme.com" --type String
+   aws ssm put-parameter --name "/vpn-wireguard/NOTIFICATION_EMAIL" --value "you@example.com" --type String
    ```
+
+   `NOTIFICATION_EMAIL` is where auto-stop alerts (see
+   [Cost Optimization](#cost-optimization)) are sent. After the first deploy, AWS sends
+   a one-time "Subscription Confirmation" email to this address — click the link in it,
+   or no notifications will be delivered.
 
    The WireGuard server config is rendered at instance boot from these
    parameters in the central region (`eu-west-1`) — the AMI holds no keys:
@@ -299,6 +319,7 @@ Provides HTTP API endpoint for starting VPN instances:
    aws ssm get-parameter --name "/vpn-wireguard/ZONE_NAME"
    aws ssm get-parameter --name "/vpn-wireguard/RECORD_NAME"
    aws ssm get-parameter --name "/vpn-wireguard/WIREGUARD_IMAGE"
+   aws ssm get-parameter --name "/vpn-wireguard/NOTIFICATION_EMAIL"
    aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/SERVER_PRIVATE_KEY" --with-decryption
    aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/CLIENT_PEERS"
    aws ssm get-parameter --region eu-west-1 --name "/vpn-wireguard/MTU"
@@ -351,6 +372,7 @@ vpn-deploy/
 ├── src/
 │   ├── vpn_toggle/                   # Python VPN toggle Lambda
 │   │   ├── vpn_toggle.py             # Lambda handler
+│   │   ├── idle_shutdown.py          # Idle/max-runtime auto-stop Lambda handler
 │   │   └── pyproject.toml            # Python dependencies
 │   └── vpn_starter_proxy/            # TypeScript VPN starter proxy Lambda
 │       ├── index.ts                  # Lambda handler source
@@ -395,6 +417,7 @@ npx cdk diff
 **CloudWatch Log Groups:**
 
 - VPN Toggle Lambda: `/aws/lambda/VPNToggleFunction`
+- VPN Idle Shutdown Lambda: `/aws/lambda/VPNIdleShutdownFunction`
 - VPN Starter Proxy Lambda: `/aws/lambda/VPNStarterProxyFunction`
 - API Gateway: Enabled with full request/response logging
 
@@ -406,7 +429,15 @@ aws logs tail /aws/lambda/VPNStarterProxyFunction --follow
 
 # VPN Toggle logs
 aws logs tail /aws/lambda/VPNToggleFunction --follow
+
+# VPN Idle Shutdown logs (per-region uptime/bytes-transferred decision detail on every
+# 15-minute tick - useful when tuning the idle threshold)
+aws logs tail /aws/lambda/VPNIdleShutdownFunction --follow
 ```
+
+An auto-stop email notification is the primary user-facing signal that a region was
+stopped; the log group above is where to look for *why* (uptime vs. idle-traffic) if
+that's ever unclear.
 
 **CloudWatch Metrics:**
 
@@ -472,7 +503,30 @@ See [migration/README.md](migration/README.md) for detailed migration instructio
 
 ### Cost Optimization
 
-- VPN instances are started on-demand and can be configured to auto-stop
+- **VPN instances auto-stop themselves.** The VPN Idle Shutdown Lambda
+  (`src/vpn_toggle/idle_shutdown.py`) runs on a 15-minute EventBridge schedule and stops
+  a region's VPN if either of these is true:
+  - it's been idle (near-zero `NetworkIn`+`NetworkOut`, using the free 5-minute
+    basic-monitoring datapoints — no detailed monitoring is enabled) for a full
+    look-back window, past an initial grace period, **or**
+  - it's exceeded a hard maximum runtime, regardless of traffic (the backstop for a
+    session that's technically active but simply forgotten).
+
+  You get an email (via the `vpn-auto-stop-notifications` SNS topic —
+  see `NOTIFICATION_EMAIL` above) whenever this fires, naming the region and the reason.
+
+  These are tunable via environment variables on `VPNIdleShutdownFunction` in
+  `lib/vpn-lambda-deploy-stack.ts` (redeploy required after changing them):
+
+  | Env var | Default |
+  |---|---|
+  | `MAX_RUNTIME_MINUTES` | `120` (2 hours) |
+  | `GRACE_PERIOD_MINUTES` | `15` |
+  | `IDLE_WINDOW_MINUTES` | `30` |
+  | `IDLE_BYTE_THRESHOLD_BYTES` | `5242880` (5 MB) |
+
+  The evaluation schedule itself (every 15 minutes) is a CDK code constant, not an env
+  var — changing the cadence needs a code change, not just a redeploy of env vars.
 - Lambda functions only incur costs when invoked
 - API Gateway charges per request
 - Consider Reserved Instances for always-on VPN instances

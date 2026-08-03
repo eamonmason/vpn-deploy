@@ -34,7 +34,7 @@ jobs:
         run: npm test
 
   lambda:
-    name: Lint (vpn_toggle / Python)
+    name: Lint & test (vpn_toggle / Python)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -45,17 +45,13 @@ jobs:
           python-version: '3.11'
 
       - name: Lint
-        run: uvx ruff check src/vpn_toggle
+        run: uvx ruff check src/vpn_toggle tests
 
-      # The Lambda has no unit tests yet (tests/test_vpn_toggle.py is empty), so
-      # this at least catches syntax errors and broken imports in deployed code.
-      - name: Import check
+      # Bypasses Poetry/poetry.lock entirely (mirrors the Lambda layer's runtime deps)
+      # and mocks all AWS calls via moto - no real credentials or network access needed.
+      - name: Unit tests
         run: |
           uv run --no-project --python 3.11 \
-            --with boto3 --with pydantic --with urllib3 \
-            python -c "
-          import sys; sys.path.insert(0, 'src')
-          from vpn_toggle import vpn_toggle, aws_helpers
-          assert callable(vpn_toggle.handler)
-          print('vpn_toggle imports cleanly')
-          "
+            --with boto3 --with pydantic --with urllib3 --with pytest \
+            --with 'moto[ec2,autoscaling,cloudwatch,sns,sqs,route53]' \
+            pytest tests/ -v

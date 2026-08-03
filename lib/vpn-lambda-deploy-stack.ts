@@ -2,11 +2,14 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { SnsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 
 export class VPNLambdaDeployStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -100,6 +103,80 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         retention: logs.RetentionDays.ONE_MONTH,
         removalPolicy: cdk.RemovalPolicy.DESTROY
       });
+
+      // VPN Idle Shutdown Lambda Function
+      // Runs on a schedule; auto-stops any region's VPN that has been idle or has
+      // exceeded a hard runtime cap, so a forgotten VPN doesn't rack up compute costs.
+      const notificationEmail = ssm.StringParameter.valueForStringParameter(this, '/vpn-wireguard/NOTIFICATION_EMAIL');
+
+      const notificationTopic = new sns.Topic(this, 'VPNNotificationTopic', {
+        topicName: 'vpn-auto-stop-notifications',
+        displayName: 'VPN Auto-Stop Notifications',
+      });
+      notificationTopic.addSubscription(new subscriptions.EmailSubscription(notificationEmail));
+
+      const idleShutdownRole = new iam.Role(this, 'VPNIdleShutdownRole', {
+        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+        ],
+        inlinePolicies: {
+          'policy': new iam.PolicyDocument({
+            statements: [
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: ['autoscaling:UpdateAutoScalingGroup'],
+                conditions: {
+                  "StringEquals": {"aws:ResourceTag/application-name": "wireguard-vpn"}
+                },
+                resources: ['*'],
+              }),
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: ['autoscaling:DescribeAutoScalingGroups', 'autoscaling:DescribeAutoScalingInstances', 'ec2:DescribeInstances'],
+                resources: ['*'],
+              }),
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: ['cloudwatch:GetMetricData'],
+                resources: ['*'],
+              }),
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: ['sns:Publish'],
+                resources: [notificationTopic.topicArn],
+              }),
+            ]
+          })
+      }});
+
+      const idleShutdownFunction = new lambda.Function(this, 'VPNIdleShutdownFunction', {
+        code: new lambda.AssetCode('src'),
+        handler: 'vpn_toggle.idle_shutdown.handler',
+        runtime: lambda.Runtime.PYTHON_3_11,
+        environment: {
+          NOTIFICATION_TOPIC_ARN: notificationTopic.topicArn,
+          MAX_RUNTIME_MINUTES: '120',
+          GRACE_PERIOD_MINUTES: '15',
+          IDLE_WINDOW_MINUTES: '30',
+          IDLE_BYTE_THRESHOLD_BYTES: `${5 * 1024 * 1024}`,
+        },
+        role: idleShutdownRole,
+        layers: [layer],
+        timeout: cdk.Duration.seconds(180)
+      });
+
+      const idleShutdownLogGroup = new logs.LogGroup(this, 'VPNIdleShutdownLogGroup', {
+        logGroupName: `/aws/lambda/${idleShutdownFunction.functionName}`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cdk.RemovalPolicy.DESTROY
+      });
+
+      const idleShutdownSchedule = new events.Rule(this, 'VPNIdleShutdownSchedule', {
+        schedule: events.Schedule.rate(cdk.Duration.minutes(15)),
+        description: 'Periodically checks all VPN regions for idle traffic or max-runtime breach and auto-stops them.',
+      });
+      idleShutdownSchedule.addTarget(new targets.LambdaFunction(idleShutdownFunction));
 
       // VPN Starter Proxy Lambda Function
       // Retrieve API key from SSM Parameter Store (SecureString)
