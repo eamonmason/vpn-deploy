@@ -45,6 +45,8 @@ def make_wireguard_asg(aws):
             GroupId=security_group_id,
             IpPermissions=[
                 {"IpProtocol": "udp", "FromPort": 51820, "ToPort": 51820, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]},
+                {"IpProtocol": "tcp", "FromPort": 51413, "ToPort": 51413, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]},
+                {"IpProtocol": "udp", "FromPort": 51413, "ToPort": 51413, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]},
                 {"IpProtocol": "tcp", "FromPort": 22, "ToPort": 22, "IpRanges": [{"CidrIp": "1.2.3.4/32"}]},
             ],
         )

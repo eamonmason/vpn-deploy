@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { VPNVMDeployStack } from '../lib/vpn-vm-deploy-stack';
 
 // Test for SSM parameter usage instead of Secrets Manager
@@ -54,6 +54,29 @@ test('VPN Stack uses SSM Parameter Store instead of Secrets Manager', () => {
       }
     }
   }
+});
+
+// Port 51413 must be open so the AMI's DNAT rule (see the vpn-image repo's
+// wg0.conf.template) can actually forward inbound torrent-peer traffic to the client.
+test('VPN Stack opens TCP and UDP 51413 for the DNAT-forwarded torrent peer', () => {
+  const app = new cdk.App({
+    context: {
+      "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true
+    }
+  });
+
+  process.env.CDK_DEFAULT_ACCOUNT = '123456789012';
+  process.env.CDK_DEFAULT_REGION = 'us-east-1';
+
+  const stack = new VPNVMDeployStack(app, 'MyTestStack');
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::EC2::SecurityGroup', Match.objectLike({
+    SecurityGroupIngress: Match.arrayWith([
+      Match.objectLike({ IpProtocol: 'tcp', FromPort: 51413, ToPort: 51413, CidrIp: '0.0.0.0/0' }),
+      Match.objectLike({ IpProtocol: 'udp', FromPort: 51413, ToPort: 51413, CidrIp: '0.0.0.0/0' }),
+    ]),
+  }));
 });
 
 // Original test kept for backwards compatibility
