@@ -11,6 +11,13 @@ from pydantic import BaseModel
 APPLICATION_NAME_KEY = "application-name"
 APPLICATION_NAME_VALUE = "wireguard-vpn"
 
+# (protocol, port) ingress rules that stay open to the world when update_security_group
+# clamps every other rule to the caller's /32.
+# 51820: WireGuard handshake (cryptographically secured).
+# 51413: BitTorrent tcp+udp, DNAT-forwarded over wg0 to the torrent peer (see the
+# vpn-image repo's wg0.conf.template PostUp).
+WORLD_OPEN_PORTS = {("udp", 51820), ("tcp", 51413), ("udp", 51413)}
+
 if len(logging.getLogger().handlers) > 0:
     logging.getLogger().setLevel(logging.INFO)
 else:
@@ -124,8 +131,11 @@ def update_security_group(
     authorize_permissions = []
     for p in permissions:
         q = p.copy()
-        # If this is the UDP 51820 WireGuard rule, keep it open to the world
-        if q.get("IpProtocol") == "udp" and q.get("FromPort") == 51820 and q.get("ToPort") == 51820:
+        # Rules for world-open ports keep their existing (0.0.0.0/0) ranges
+        if (
+            q.get("FromPort") == q.get("ToPort")
+            and (q.get("IpProtocol"), q.get("FromPort")) in WORLD_OPEN_PORTS
+        ):
             pass
         else:
             q["IpRanges"] = [{"CidrIp": f"{allowed_client_ip}/32"}]

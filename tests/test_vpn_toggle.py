@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import boto3
 import pytest
 
 from vpn_toggle import aws_helpers, vpn_toggle
@@ -99,6 +100,30 @@ def test_enable_vpn_sets_capacity_and_updates_dns_and_security_group(
 
     updated = aws_helpers.get_asg("eu-west-1")
     assert updated.DesiredCapacity == 1
+
+
+def test_update_security_group_keeps_world_open_ports_and_clamps_ssh(
+    aws, make_wireguard_asg
+):
+    make_wireguard_asg(region="eu-west-1", desired_capacity=1)
+    asg = aws_helpers.get_asg("eu-west-1")
+
+    aws_helpers.update_security_group(asg, "9.9.9.9", "eu-west-1")
+
+    instance = aws_helpers.get_instance_from_asg(asg, "eu-west-1")
+    ec2 = boto3.client("ec2", region_name="eu-west-1")
+    security_group = ec2.describe_security_groups(
+        GroupIds=[instance.SecurityGroups[0]["GroupId"]]
+    )["SecurityGroups"][0]
+    rules = {
+        (p["IpProtocol"], p["FromPort"]): [r["CidrIp"] for r in p["IpRanges"]]
+        for p in security_group["IpPermissions"]
+    }
+
+    assert rules[("udp", 51820)] == ["0.0.0.0/0"]
+    assert rules[("tcp", 51413)] == ["0.0.0.0/0"]
+    assert rules[("udp", 51413)] == ["0.0.0.0/0"]
+    assert rules[("tcp", 22)] == ["9.9.9.9/32"]
 
 
 def test_disable_vpn_sets_capacity_to_zero(aws, make_wireguard_asg):

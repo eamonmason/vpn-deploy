@@ -64,6 +64,19 @@ export class VPNVMDeployStack extends cdk.Stack {
       ec2.Port.udp(51820),
       'allow wireguard vpn access from anywhere (cryptographically secured)');
 
+    // DNAT-forwarded to the torrent peer over wg0 (see the vpn-image repo's
+    // wg0.conf.template PostUp). Kept open to the world by update_security_group
+    // in src/vpn_toggle/aws_helpers.py, same as the WireGuard rule above.
+    vpnSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(51413),
+      'BitTorrent inbound, DNAT-forwarded over wg0 to the torrent peer');
+
+    vpnSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.udp(51413),
+      'BitTorrent uTP/DHT inbound, DNAT-forwarded over wg0 to the torrent peer');
+
     const stack = cdk.Stack.of(this);
     const stack_id = stack.stackId.substring(stack.stackId.lastIndexOf('/') + 1);
     const vpnVMKeyPair = new ec2.CfnKeyPair(this, 'VPNVMKeyPair', {
