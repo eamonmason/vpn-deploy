@@ -49,3 +49,7 @@ jobs:
           # or https://code.claude.com/docs/en/cli-reference for available options
           # claude_args: '--allowed-tools Bash(gh pr *)'
 
+          # TEMP: debugging a run that fails immediately with is_error:true,
+          # 0 cost, 1 turn. Remove once root cause is found.
+          show_full_output: true
+
