@@ -4,6 +4,7 @@ Dry-run validation script to verify the CDK changes work as expected.
 This validates the CloudFormation template structure without actual deployment.
 """
 
+import hashlib
 import subprocess
 import json
 import sys
@@ -45,6 +46,18 @@ def run_cdk_synth():
         print(f"❌ CDK synth error: {e}")
         return None
 
+def _mask(value: str) -> str:
+    """Return a stable, non-reversible hint for a potentially sensitive value,
+    safe to print. A truncated hash carries no characters from the original
+    value (unlike prefix/suffix slicing, which CodeQL's clear-text-logging
+    check still treats as the tainted value flowing to the sink).
+    """
+    if not value:
+        return "<empty>"
+    digest = hashlib.sha256(value.encode()).hexdigest()[:8]
+    return f"sha256:{digest}"
+
+
 def validate_template(template_yaml):
     """Validate that the CloudFormation template has the expected SSM configuration."""
     print("🔍 Validating CloudFormation template structure...")
@@ -74,7 +87,7 @@ def validate_template(template_yaml):
     for pattern in secrets_patterns:
         if pattern in template_yaml:
             found_secrets += 1
-            print(f"❌ Found Secrets Manager pattern: {pattern}")
+            print(f"❌ Found Secrets Manager pattern: {_mask(pattern)}")
     
     if found_ssm >= 2:  # Should find SSM permission and SSM get-parameter command
         print("✅ Template correctly uses SSM Parameter Store")

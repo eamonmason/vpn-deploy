@@ -32,15 +32,23 @@ SSM_PARAMETER_NAME = "/vpn-wireguard/PRIVATE_KEY"
 
 
 def get_secret_value(secrets_client, secret_name: str) -> Optional[str]:
-    """Retrieve the secret value from Secrets Manager."""
+    """Retrieve the secret value from Secrets Manager.
+
+    Deliberately does not include `secret_name` in any log message: this
+    script only ever calls it with the single module-level SECRET_NAME, so
+    there is nothing gained by echoing the identifier back, and it avoids
+    CodeQL's clear-text-logging check flagging a value derived from a
+    parameter named like a secret (a custom sanitizer/wrapper function
+    doesn't reliably clear that taint under the default query).
+    """
     try:
         response = secrets_client.get_secret_value(SecretId=secret_name)
         return response['SecretString']
     except secrets_client.exceptions.ResourceNotFoundException:
-        logger.error(f"Secret {secret_name} not found")
+        logger.error("Secret not found in Secrets Manager")
         return None
     except Exception as e:
-        logger.error(f"Failed to retrieve secret {secret_name}: {e}")
+        logger.error(f"Failed to retrieve secret from Secrets Manager: {e}")
         return None
 
 
@@ -81,17 +89,21 @@ def verify_ssm_parameter(ssm_client, parameter_name: str, expected_value: str) -
 
 
 def delete_secret(secrets_client, secret_name: str) -> bool:
-    """Delete the secret from Secrets Manager."""
+    """Delete the secret from Secrets Manager.
+
+    Deliberately does not include `secret_name` in any log message -
+    see the docstring on get_secret_value() for why.
+    """
     try:
         # Schedule deletion with a 7-day recovery window
         secrets_client.delete_secret(
             SecretId=secret_name,
             RecoveryWindowInDays=7
         )
-        logger.info(f"Successfully scheduled deletion of secret {secret_name} (7-day recovery window)")
+        logger.info("Successfully scheduled deletion of secret (7-day recovery window)")
         return True
     except Exception as e:
-        logger.error(f"Failed to delete secret {secret_name}: {e}")
+        logger.error(f"Failed to delete secret: {e}")
         return False
 
 
