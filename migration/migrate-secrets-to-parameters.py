@@ -31,16 +31,25 @@ SECRET_NAME = "wireguard/client/publickey"
 SSM_PARAMETER_NAME = "/vpn-wireguard/PRIVATE_KEY"
 
 
+def _mask_secret_id(secret_id: str) -> str:
+    """Mask a Secrets Manager identifier for logging, keeping only a short hint."""
+    if not secret_id:
+        return "<empty>"
+    if len(secret_id) <= 4:
+        return "*" * len(secret_id)
+    return f"{secret_id[:2]}***{secret_id[-2:]}"
+
+
 def get_secret_value(secrets_client, secret_name: str) -> Optional[str]:
     """Retrieve the secret value from Secrets Manager."""
     try:
         response = secrets_client.get_secret_value(SecretId=secret_name)
         return response['SecretString']
     except secrets_client.exceptions.ResourceNotFoundException:
-        logger.error(f"Secret {secret_name} not found")
+        logger.error(f"Secret {_mask_secret_id(secret_name)} not found")
         return None
     except Exception as e:
-        logger.error(f"Failed to retrieve secret {secret_name}: {e}")
+        logger.error(f"Failed to retrieve secret {_mask_secret_id(secret_name)}: {e}")
         return None
 
 
@@ -88,10 +97,10 @@ def delete_secret(secrets_client, secret_name: str) -> bool:
             SecretId=secret_name,
             RecoveryWindowInDays=7
         )
-        logger.info(f"Successfully scheduled deletion of secret {secret_name} (7-day recovery window)")
+        logger.info(f"Successfully scheduled deletion of secret {_mask_secret_id(secret_name)} (7-day recovery window)")
         return True
     except Exception as e:
-        logger.error(f"Failed to delete secret {secret_name}: {e}")
+        logger.error(f"Failed to delete secret {_mask_secret_id(secret_name)}: {e}")
         return False
 
 

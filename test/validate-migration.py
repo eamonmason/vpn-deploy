@@ -45,6 +45,15 @@ def run_cdk_synth():
         print(f"❌ CDK synth error: {e}")
         return None
 
+def _mask(value: str) -> str:
+    """Mask a potentially sensitive value for printing, keeping only a short hint."""
+    if not value:
+        return "<empty>"
+    if len(value) <= 4:
+        return "*" * len(value)
+    return f"{value[:2]}***{value[-2:]}"
+
+
 def validate_template(template_yaml):
     """Validate that the CloudFormation template has the expected SSM configuration."""
     print("🔍 Validating CloudFormation template structure...")
@@ -74,7 +83,7 @@ def validate_template(template_yaml):
     for pattern in secrets_patterns:
         if pattern in template_yaml:
             found_secrets += 1
-            print(f"❌ Found Secrets Manager pattern: {pattern}")
+            print(f"❌ Found Secrets Manager pattern: {_mask(pattern)}")
     
     if found_ssm >= 2:  # Should find SSM permission and SSM get-parameter command
         print("✅ Template correctly uses SSM Parameter Store")
