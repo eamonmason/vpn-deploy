@@ -249,7 +249,9 @@ export class VPNLambdaDeployStack extends cdk.Stack {
         deployOptions: {
           stageName: 'prod',
           loggingLevel: apigateway.MethodLoggingLevel.INFO,
-          dataTraceEnabled: true,
+          // Full request/response data trace would log the X-Api-Key header and
+          // apiKey body field to CloudWatch Logs in clear text - keep it off.
+          dataTraceEnabled: false,
           tracingEnabled: true,
           metricsEnabled: true,
         },

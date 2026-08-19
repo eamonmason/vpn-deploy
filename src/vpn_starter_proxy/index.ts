@@ -1,3 +1,4 @@
+import { isIPv4, isIPv6 } from 'net';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -61,13 +62,10 @@ const createResponse = (
 });
 
 const validateIPAddress = (ip: string): boolean => {
-  // Validate IPv4 format
-  const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-  // Validate IPv6 format (simplified)
-  const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
-
-  return ipv4Regex.test(ip) || ipv6Regex.test(ip);
+  // Uses Node's built-in parser instead of a hand-rolled regex - the classic
+  // IPv6-validation regex is vulnerable to catastrophic backtracking (ReDoS)
+  // on attacker-controlled input.
+  return isIPv4(ip) || isIPv6(ip);
 };
 
 const sanitizeInput = (input: string): string => {
@@ -76,10 +74,34 @@ const sanitizeInput = (input: string): string => {
   return input.replace(/[^\w\s.\-:]/g, '').trim();
 };
 
+// Redacts the API key (and any header/casing variant of it) before an event is
+// logged, so CloudWatch Logs never receives the credential in clear text.
+const redactEvent = (event: APIGatewayProxyEvent): unknown => {
+  const headers = { ...(event.headers || {}) };
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === 'x-api-key') headers[key] = '[REDACTED]';
+  }
+
+  let body = event.body;
+  if (body) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && 'apiKey' in parsed) {
+        parsed.apiKey = '[REDACTED]';
+      }
+      body = JSON.stringify(parsed);
+    } catch {
+      // Not JSON - leave as-is, nothing structured to redact.
+    }
+  }
+
+  return { ...event, headers, body };
+};
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Received event:', JSON.stringify(event, null, 2));
+  console.log('Received event:', JSON.stringify(redactEvent(event), null, 2));
 
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
