@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import boto3
+import hashlib
 import json
 import logging
 import sys
@@ -32,12 +33,16 @@ SSM_PARAMETER_NAME = "/vpn-wireguard/PRIVATE_KEY"
 
 
 def _mask_secret_id(secret_id: str) -> str:
-    """Mask a Secrets Manager identifier for logging, keeping only a short hint."""
+    """Return a stable, non-reversible hint for a Secrets Manager identifier,
+    safe to log. A truncated hash carries no characters from the original
+    value (unlike prefix/suffix slicing, which CodeQL's clear-text-logging
+    check still treats as the tainted value flowing to the log sink), while
+    still letting the same identifier be recognized across log lines.
+    """
     if not secret_id:
         return "<empty>"
-    if len(secret_id) <= 4:
-        return "*" * len(secret_id)
-    return f"{secret_id[:2]}***{secret_id[-2:]}"
+    digest = hashlib.sha256(secret_id.encode()).hexdigest()[:8]
+    return f"sha256:{digest}"
 
 
 def get_secret_value(secrets_client, secret_name: str) -> Optional[str]:

@@ -4,6 +4,7 @@ Dry-run validation script to verify the CDK changes work as expected.
 This validates the CloudFormation template structure without actual deployment.
 """
 
+import hashlib
 import subprocess
 import json
 import sys
@@ -46,12 +47,15 @@ def run_cdk_synth():
         return None
 
 def _mask(value: str) -> str:
-    """Mask a potentially sensitive value for printing, keeping only a short hint."""
+    """Return a stable, non-reversible hint for a potentially sensitive value,
+    safe to print. A truncated hash carries no characters from the original
+    value (unlike prefix/suffix slicing, which CodeQL's clear-text-logging
+    check still treats as the tainted value flowing to the sink).
+    """
     if not value:
         return "<empty>"
-    if len(value) <= 4:
-        return "*" * len(value)
-    return f"{value[:2]}***{value[-2:]}"
+    digest = hashlib.sha256(value.encode()).hexdigest()[:8]
+    return f"sha256:{digest}"
 
 
 def validate_template(template_yaml):
