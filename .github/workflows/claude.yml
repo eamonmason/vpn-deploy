@@ -19,9 +19,9 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # Required for Claude to push commits/branches for PRs
       pull-requests: read
-      issues: read      
+      issues: read
       security-events: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
@@ -47,9 +47,8 @@ jobs:
           # Optional: Add claude_args to customize behavior and configuration
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
-
-          # TEMP: debugging a run that fails immediately with is_error:true,
-          # 0 cost, 1 turn. Remove once root cause is found.
-          show_full_output: true
+          # The action's own SDK-level allowlist otherwise blocks all `gh`/`curl`/
+          # WebFetch calls, even ones .claude/settings.json permits, so Claude can't
+          # read code-scanning alerts without this.
+          claude_args: '--allowed-tools "Bash(gh api repos/eamonmason/vpn-deploy/code-scanning/alerts:*)"'
 
