@@ -7,6 +7,7 @@ This project deploys a WireGuard VPN infrastructure using AWS CDK, with automate
 - [User Guide](#user-guide)
   - [Using the VPN Starter API](#using-the-vpn-starter-api)
   - [iOS Shortcuts Integration](#ios-shortcuts-integration)
+  - [WireGuard Client Configuration](#wireguard-client-configuration)
   - [Getting Your API Key](#getting-your-api-key)
 - [Infrastructure Guide](#infrastructure-guide)
   - [Architecture Overview](#architecture-overview)
@@ -44,25 +45,44 @@ X-Api-Key: <your-api-key>
 }
 ```
 
+`whitelist_ip` must be **your own current public IPv4 or IPv6 address**
+(not the VPN server's) — it's added to the WireGuard instance's security
+group so only that address can connect. If it's stale or wrong, the VPN
+starts but you won't be able to reach it. To find your current public IP:
+
+```bash
+curl -s https://checkip.amazonaws.com
+```
+
+The iOS Shortcut instead uses the built-in "Get Current IP Address"
+action (see [iOS Shortcuts Integration](#ios-shortcuts-integration)
+below) so this is filled in automatically each run.
+
 **Available Regions:**
 
-- `eu-west-2` - Europe (London)
-- `us-east-1` - US East (N. Virginia)
-- `eu-north-1` - Europe (Stockholm)
-- `ap-southeast-2` - Asia Pacific (Sydney)
-- `eu-west-3` - Europe (Paris)
-- `none` - Turn off all VPN VMs
+| Region code | Friendly name |
+|---|---|
+| `eu-west-1` | Europe (Ireland) |
+| `eu-west-2` | Europe (London) |
+| `eu-west-3` | Europe (Paris) |
+| `eu-north-1` | Europe (Stockholm) |
+| `us-east-1` | US East (N. Virginia) |
+| `ap-southeast-2` | Asia Pacific (Sydney) |
+| `ca-central-1` | Canada (Central) |
+| `none` | None (turn off all VPN VMs) |
 
 **Example using curl:**
 
 ```bash
+MY_IP=$(curl -s https://checkip.amazonaws.com)
+
 curl -X POST "https://your-api-gateway-url/prod/start-vpn" \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: your-api-key" \
-  -d '{
-    "region": "eu-west-2",
-    "whitelist_ip": "1.2.3.4"
-  }'
+  -d "{
+    \"region\": \"eu-west-2\",
+    \"whitelist_ip\": \"${MY_IP}\"
+  }"
 ```
 
 **Success Response:**
@@ -96,55 +116,137 @@ To create an iOS Shortcut for starting your VPN:
    - Tap the "+" button to create a new shortcut
    - Add a "Get Contents of URL" action
 
-3. **Configure the URL action:**
+3. **Add a region menu (with friendly names) above the URL action:**
+   - Add a **Choose from Menu** action; set its prompt to something like
+     "Choose VPN Region".
+   - Add one menu item per row below, with the item's **title** set to
+     the friendly name (this is the label you'll see when the shortcut
+     runs):
+
+     | Menu item title (friendly name) | `Region` variable value |
+     |---|---|
+     | Europe (Ireland) | `eu-west-1` |
+     | Europe (London) | `eu-west-2` |
+     | Europe (Paris) | `eu-west-3` |
+     | Europe (Stockholm) | `eu-north-1` |
+     | US East (N. Virginia) | `us-east-1` |
+     | Asia Pacific (Sydney) | `ap-southeast-2` |
+     | Canada (Central) | `ca-central-1` |
+     | None (turn off VPN) | `none` |
+
+   - Under **each** menu item's branch, add a **Set Variable** action
+     that creates/overwrites a variable named `Region` with that item's
+     region code from the table above.
+
+4. **Configure the URL action** (below the menu, so all branches merge
+   into it):
    - URL: `https://your-api-gateway-url/prod/start-vpn`
    - Method: `POST`
    - Headers:
      - Add Header: `X-Api-Key` with value `your-api-key`
      - Add Header: `Content-Type` with value `application/json`
    - Request Body: `JSON`
-   - JSON structure:
+   - JSON structure — insert the `Region` variable (as a variable chip,
+     not typed text) for the `region` value:
      ```json
      {
-       "region": "eu-west-2",
+       "region": "{Region}",
        "whitelist_ip": "Get Current IP Address"
      }
      ```
 
-4. **Add response handling** (optional):
+5. **Add response handling** (optional):
    - Add a "Show Result" action to display the API response
    - Add a "Show Notification" action for success/failure
 
-5. **Name your shortcut** (e.g., "Start VPN - EU West")
+6. **Name your shortcut** (e.g., "Start VPN")
 
-6. **Add to Home Screen** for quick access
+7. **Add to Home Screen** for quick access
+
+### WireGuard Client Configuration
+
+The DNS record the tunnel connects to (`A_RECORD_NAME`, see
+`lib/vpn-lambda-deploy-stack.ts:18,92`) is a single shared alias that the
+VPN Toggle Lambda repoints to whichever region's instance was last started
+(`set_dns_alias` in `src/vpn_toggle/aws_helpers.py`) — **one client
+profile covers every region**; you don't need a separate profile per
+region, and switching regions via the shortcut/API just changes what the
+existing profile's `Endpoint` hostname resolves to.
+
+Recommended `[Interface]` settings, based on troubleshooting a slow/
+stalling connection:
+
+```
+[Interface]
+PrivateKey = <your private key>
+Address = 10.0.0.x/32
+DNS = 172.32.0.2
+MTU = 1280
+
+[Peer]
+PublicKey = <server public key>
+AllowedIPs = 0.0.0.0/0
+Endpoint = <your A_RECORD_NAME>:51820
+PersistentKeepalive = 25
+```
+
+- **`MTU = 1280`**: matches the server's `/vpn-wireguard/MTU` SSM
+  parameter (see [Deployment](#deployment) below) — client and server
+  MTU must match. `1280` is a conservative value chosen after path-MTU
+  issues caused slow/stalling connections at the previous default of
+  `1420`; if your own path tolerates a higher value you can raise both
+  ends together, but keep them in sync.
+- **`DNS = 172.32.0.2`**: every regional VPC is created with the same
+  hardcoded CIDR `172.32.0.0/16` (`lib/vpn-vm-deploy-stack.ts:28`,
+  identical across all 7 regions), so `172.32.0.2` — the CIDR's base
+  address + 2, i.e. that VPC's Amazon-provided DNS resolver — is the
+  same value everywhere. Using it instead of a public resolver (e.g.
+  `1.1.1.1`) keeps DNS queries inside AWS's network instead of round
+  -tripping out to the public internet and back, which is more resilient
+  to internet-path jitter/bufferbloat.
 
 ### Getting Your API Key
 
+The API Gateway and Lambda live in the `VPNLambdaDeployStack`, deployed by
+the pipeline's `cd-lambda` stage (see `lib/vpn-pipeline-lambda-stage.ts`)
+into `eu-west-1`. The API key is stored as an SSM `SecureString`
+parameter, not in Secrets Manager.
+
 **Option 1: AWS Console**
 
-1. Go to AWS Secrets Manager console
-2. Find the secret named `vpn-starter-proxy-api-key`
-3. Click "Retrieve secret value"
-4. Copy the `apiKey` value
+1. Go to the AWS Systems Manager console → Parameter Store (region `eu-west-1`)
+2. Find the parameter named `/vpn-starter-proxy/api-key`
+3. Click "Show" / "Show decrypted value" to reveal it
 
 **Option 2: AWS CLI**
 
 ```bash
-aws secretsmanager get-secret-value \
-  --secret-id vpn-starter-proxy-api-key \
-  --query SecretString \
-  --output text | jq -r .apiKey
+aws ssm get-parameter --region eu-west-1 \
+  --name "/vpn-starter-proxy/api-key" \
+  --with-decryption \
+  --query "Parameter.Value" --output text
 ```
 
 **Option 3: CloudFormation Outputs**
 
-The API endpoint URL is available in the CloudFormation stack outputs:
+The API endpoint and the API key's parameter name are available as
+outputs of the `VPNLambdaDeployStack`, not the top-level `VPNPipelineStack`
+(the pipeline stack itself has no outputs). Because it's deployed as a CDK
+Pipelines stage, first find its full stack name, then query its outputs:
 
 ```bash
-aws cloudformation describe-stacks \
-  --stack-name VPNPipelineStack \
+STACK_NAME=$(aws cloudformation describe-stacks --region eu-west-1 \
+  --query "Stacks[?contains(StackName, 'VPNLambdaDeployStack')].StackName" \
+  --output text)
+
+aws cloudformation describe-stacks --region eu-west-1 \
+  --stack-name "$STACK_NAME" \
   --query "Stacks[0].Outputs[?OutputKey=='VPNStarterProxyApiEndpoint'].OutputValue" \
+  --output text
+
+aws cloudformation describe-stacks --region eu-west-1 \
+  --stack-name "$STACK_NAME" \
+  --query "Stacks[0].Outputs[?OutputKey=='VPNStarterProxyApiKeyParamName'].OutputValue" \
   --output text
 ```
 
@@ -160,11 +262,13 @@ The infrastructure consists of four main components:
 
 WireGuard VPN instances deployed across multiple AWS regions:
 
-- us-east-1 (US East - N. Virginia)
+- eu-west-1 (Europe - Ireland)
 - eu-west-2 (Europe - London)
-- eu-north-1 (Europe - Stockholm)
-- ap-southeast-2 (Asia Pacific - Sydney)
 - eu-west-3 (Europe - Paris)
+- eu-north-1 (Europe - Stockholm)
+- us-east-1 (US East - N. Virginia)
+- ap-southeast-2 (Asia Pacific - Sydney)
+- ca-central-1 (Canada - Central)
 
 #### 2. **VPN Toggle Lambda Function** (Python)
 
@@ -454,7 +558,7 @@ that's ever unclear.
 
 **API returns 400 Bad Request:**
 
-- Ensure region is one of: `eu-west-2`, `us-east-1`, `eu-north-1`, `ap-southeast-2`, `eu-west-3`, `none`
+- Ensure region is one of: `eu-west-1`, `eu-west-2`, `eu-west-3`, `eu-north-1`, `us-east-1`, `ap-southeast-2`, `ca-central-1`, `none`
 - Verify IP address is in valid IPv4 or IPv6 format
 - Check JSON request body is properly formatted
 
