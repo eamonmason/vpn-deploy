@@ -27,14 +27,18 @@
   },
   "overrides": {
     "@jest/reporters": {
-      "glob": "^11.0.0"
+      "glob": "^14.0.3"
     },
     "jest-config": {
-      "glob": "^11.0.0"
+      "glob": "^14.0.3"
     },
     "jest-runtime": {
-      "glob": "^11.0.0"
+      "glob": "^14.0.3"
     },
+    "test-exclude": {
+      "glob": "^14.0.3"
+    },
+    "minimatch": "^11.0.3",
     "ts-node": {
       "diff": "4.0.4"
     },
