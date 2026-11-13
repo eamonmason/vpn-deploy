@@ -4,7 +4,7 @@
   "description": "VPN Starter Proxy Lambda Function",
   "main": "index.js",
   "dependencies": {
-    "@aws-sdk/client-sns": "^3.0.0",
+    "@aws-sdk/client-sns": "^3.1167.0",
     "@aws-sdk/client-ssm": "^3.0.0"
   },
   "devDependencies": {
