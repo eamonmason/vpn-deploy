@@ -17,6 +17,16 @@ updates:
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
 
+  - package-ecosystem: "npm"
+    directory: "/src/vpn_starter_proxy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      proxy-npm-dependencies:
+        patterns: ["*"]
+    open-pull-requests-limit: 10
+
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
